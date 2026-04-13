@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { checkoutPosOrder } from '../controllers/pos.controller.ts';
+import { checkoutPosOrder } from '../controllers/pos.controller';
 
 const posRouter = Router();
 

@@ -4,7 +4,7 @@ import {
   deleteProductCategory,
   listProductCategories,
   updateProductCategory,
-} from '../controllers/productCategories.controller.ts';
+} from '../controllers/productCategories.controller';
 
 const productCategoriesRouter = Router();
 

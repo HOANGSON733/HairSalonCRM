@@ -4,7 +4,7 @@ import {
   deleteService,
   listServices,
   updateService,
-} from '../controllers/services.controller.ts';
+} from '../controllers/services.controller';
 
 const servicesRouter = Router();
 

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getDashboardAnalytics, getReportsAnalytics, getStaffPerformance, getStaffRecentActivities } from '../controllers/analytics.controller.ts';
+import { getDashboardAnalytics, getReportsAnalytics, getStaffPerformance, getStaffRecentActivities } from '../controllers/analytics.controller';
 
 const analyticsRouter = Router();
 

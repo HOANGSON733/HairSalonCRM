@@ -5,7 +5,7 @@ import {
   listProducts,
   restockProduct,
   updateProduct,
-} from '../controllers/products.controller.ts';
+} from '../controllers/products.controller';
 
 const productsRouter = Router();
 

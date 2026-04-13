@@ -132,7 +132,8 @@ export default function App() {
   const [serviceToView, setServiceToView] = useState<Service | null>(null);
   const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
   const [isAddShiftModalOpen, setIsAddShiftModalOpen] = useState(false);
-  const [customerToDelete, setCustomerToDelete] = useState<any>(null);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customersTotal, setCustomersTotal] = useState(0);
@@ -716,6 +717,42 @@ export default function App() {
     window.dispatchEvent(new Event('customers:changed'));
   };
 
+  const handleUpdateCustomer = async (
+    id: string | number,
+    payload: {
+      name: string;
+      phone: string;
+      email: string;
+      birthday: string;
+      gender: string;
+      assignedEmployee: string;
+      source: string;
+      notes: string;
+      avatar?: string;
+    }
+  ) => {
+    if (!authToken) {
+      throw new Error('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
+    }
+
+    const response = await fetch(`/api/customers/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.message || 'Không thể cập nhật khách hàng.');
+    }
+
+    await loadCustomers(authToken);
+    window.dispatchEvent(new Event('customers:changed'));
+  };
+
   const handleCreateEmployee = async (payload: {
     name: string;
     phone: string;
@@ -1049,9 +1086,7 @@ export default function App() {
               authToken={authToken}
               onNewCustomer={() => setIsNewCustomerModalOpen(true)}
               onDeleteCustomer={(customer) => setCustomerToDelete(customer)}
-              onEditCustomer={(customer) => {
-                alert(`Chức năng sửa khách hàng (${customer.name}) sẽ được bổ sung ở bước tiếp theo.`);
-              }}
+              onEditCustomer={(customer) => setCustomerToEdit(customer)}
               onNewAppointmentForCustomer={(customer) => {
                 setAppointmentInitialStylistId(null);
                 setAppointmentInitialCustomerName(customer.name || '');
@@ -1200,12 +1235,69 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {/* Edit Customer Modal */}
+      <AnimatePresence>
+        {customerToEdit && (
+          <NewCustomerModal
+            authToken={authToken}
+            onClose={() => setCustomerToEdit(null)}
+            onSave={async (payload) => {
+              try {
+                await handleUpdateCustomer(customerToEdit.id, payload);
+                setCustomerToEdit(null);
+                showToast('success', 'Thành công', 'Đã cập nhật khách hàng thành công.');
+              } catch (error) {
+                const message = error instanceof Error ? error.message : 'Không thể cập nhật khách hàng.';
+                showToast('error', 'Thất bại', message);
+                throw error;
+              }
+            }}
+            employees={employees}
+            title="Cập nhật thông tin khách hàng"
+            saveLabel="Cập nhật khách hàng"
+            initialData={{
+              name: customerToEdit.name || '',
+              phone: customerToEdit.phone || '',
+              email: customerToEdit.email || '',
+              birthday: customerToEdit.birthday || '',
+              gender: customerToEdit.gender || 'Nữ',
+              assignedEmployee: customerToEdit.assignedEmployee || employees[0]?.name || '',
+              source: customerToEdit.source || '',
+              notes: customerToEdit.notes || '',
+              avatar: customerToEdit.avatar || '',
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* Delete Customer Modal */}
       <AnimatePresence>
         {customerToDelete && (
           <DeleteCustomerModal 
             customer={customerToDelete} 
-            onClose={() => setCustomerToDelete(null)} 
+            onClose={() => setCustomerToDelete(null)}
+            onConfirm={() => {
+              (async () => {
+                try {
+                  if (!authToken) throw new Error('Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.');
+                  const response = await fetch(`/api/customers/${customerToDelete.id}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: `Bearer ${authToken}` },
+                  });
+                  if (!response.ok) {
+                    const data = await response.json().catch(() => null);
+                    throw new Error(data?.message || 'Không thể xóa khách hàng.');
+                  }
+                  setCustomerToDelete(null);
+                  await loadCustomers(authToken);
+                  window.dispatchEvent(new Event('customers:changed'));
+                  showToast('success', 'Thành công', 'Đã xóa khách hàng thành công.');
+                } catch (e) {
+                  const message = e instanceof Error ? e.message : 'Không thể xóa khách hàng.';
+                  showToast('error', 'Thất bại', message);
+                }
+              })();
+            }}
           />
         )}
       </AnimatePresence>

@@ -26,21 +26,42 @@ interface NewCustomerModalProps {
     notes: string;
     avatar?: string;
   }) => Promise<void>;
+  title?: string;
+  saveLabel?: string;
+  initialData?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+    birthday?: string;
+    gender?: string;
+    assignedEmployee?: string;
+    source?: string;
+    notes?: string;
+    avatar?: string;
+  };
 }
 
-export function NewCustomerModal({ authToken = null, onClose, onSave, employees }: NewCustomerModalProps) {
+export function NewCustomerModal({
+  authToken = null,
+  onClose,
+  onSave,
+  employees,
+  title = 'Thông tin khách hàng mới',
+  saveLabel = 'Lưu hồ sơ khách hàng',
+  initialData,
+}: NewCustomerModalProps) {
   const [sourceOptions, setSourceOptions] = useState<Array<{ name: string; icon: string }>>(() =>
     [...CUSTOMER_SOURCES].map((name) => ({ name, icon: DEFAULT_CUSTOMER_SOURCE_ICON }))
   );
-  const [selectedSource, setSelectedSource] = useState(DEFAULT_CUSTOMER_SOURCE);
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [birthday, setBirthday] = useState('');
-  const [gender, setGender] = useState('Nữ');
-  const [assignedEmployee, setAssignedEmployee] = useState(employees[0]?.name || '');
-  const [notes, setNotes] = useState('');
-  const [avatar, setAvatar] = useState<string | undefined>(undefined);
+  const [selectedSource, setSelectedSource] = useState(initialData?.source || DEFAULT_CUSTOMER_SOURCE);
+  const [name, setName] = useState(initialData?.name || '');
+  const [phone, setPhone] = useState(initialData?.phone || '');
+  const [email, setEmail] = useState(initialData?.email || '');
+  const [birthday, setBirthday] = useState(initialData?.birthday || '');
+  const [gender, setGender] = useState(initialData?.gender || 'Nữ');
+  const [assignedEmployee, setAssignedEmployee] = useState(initialData?.assignedEmployee || employees[0]?.name || '');
+  const [notes, setNotes] = useState(initialData?.notes || '');
+  const [avatar, setAvatar] = useState<string | undefined>(initialData?.avatar || undefined);
   const [avatarName, setAvatarName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -190,7 +211,7 @@ export function NewCustomerModal({ authToken = null, onClose, onSave, employees 
         {/* Right Side: Form */}
         <div className="flex-1 bg-white flex flex-col">
           <div className="p-10 pb-4 flex justify-between items-center">
-            <h3 className="text-2xl font-serif text-primary">Thông tin khách hàng mới</h3>
+            <h3 className="text-2xl font-serif text-primary">{title}</h3>
             <button onClick={onClose} className="p-2 text-stone-400 hover:text-stone-600 transition-colors">
               <X size={24} />
             </button>
@@ -346,7 +367,7 @@ export function NewCustomerModal({ authToken = null, onClose, onSave, employees 
               disabled={isSaving}
               className="px-12 py-4 bg-primary text-white rounded-2xl text-sm font-bold shadow-xl hover:bg-primary-light transition-all active:scale-95 disabled:opacity-60"
             >
-              {isSaving ? 'ĐANG LƯU...' : 'Lưu hồ sơ khách hàng'}
+              {isSaving ? 'ĐANG LƯU...' : saveLabel}
             </button>
           </div>
           {errorMessage && (

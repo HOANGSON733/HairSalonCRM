@@ -307,7 +307,7 @@ export function CustomersView({ authToken, onNewCustomer, onDeleteCustomer, onEd
                           <img
                             src={customer.avatar}
                             alt={customer.name}
-                            className="w-12 h-12 rounded-2xl object-cover shadow-sm"
+                            className="w-12 h-12 rounded-3xl object-cover shadow-sm"
                           />
                           <div>
                             <p className="text-sm font-bold text-primary group-hover:text-secondary transition-colors">

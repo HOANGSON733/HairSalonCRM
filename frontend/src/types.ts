@@ -6,6 +6,10 @@ export interface Customer {
   tags: string[];
   phone: string;
   email: string;
+  birthday?: string;
+  gender?: string;
+  assignedEmployee?: string;
+  notes?: string;
   source?: string;
   lastVisit: string;
   avatar: string;

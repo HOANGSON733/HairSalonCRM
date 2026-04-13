@@ -5,9 +5,10 @@ import { AlertTriangle, Trash2 } from 'lucide-react';
 interface DeleteCustomerModalProps {
   customer: any;
   onClose: () => void;
+  onConfirm: () => void;
 }
 
-export function DeleteCustomerModal({ customer, onClose }: DeleteCustomerModalProps) {
+export function DeleteCustomerModal({ customer, onClose, onConfirm }: DeleteCustomerModalProps) {
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <motion.div 
@@ -59,7 +60,7 @@ export function DeleteCustomerModal({ customer, onClose }: DeleteCustomerModalPr
             Hủy bỏ
           </button>
           <button 
-            onClick={onClose}
+            onClick={onConfirm}
             className="flex-1 py-6 text-sm font-bold text-white flex items-center justify-center gap-2 transition-all bg-red-600 hover:bg-red-700"
           >
             <Trash2 size={18} />

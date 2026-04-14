@@ -14,6 +14,7 @@ import posRouter from './routes/pos.routes';
 import analyticsRouter from './routes/analytics.routes';
 import appointmentsRouter from './routes/appointments.routes';
 import customerSourcesRouter from './routes/customerSources.routes';
+import staffLevelsRouter from './routes/staffLevels.routes';
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -31,6 +32,11 @@ app.use('/api/pos', posRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/appointments', appointmentsRouter);
 app.use('/api/customer-sources', customerSourcesRouter);
+app.use('/api/staff-levels', staffLevelsRouter);
+
+app.get('/', (_, res) => {
+  res.send('API OK');
+});
 
 connectMongo()
   .then(() => {
@@ -41,7 +47,4 @@ connectMongo()
   .catch((error) => {
     console.error('MongoDB connection failed:', error);
     process.exit(1);
-  });
-  app.get("/", (req, res) => {
-    res.send("API OK");
   });

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   LayoutDashboard, 
   CalendarDays, 
@@ -35,6 +35,7 @@ import { AppointmentsView } from './components/views/AppointmentsView';
 import { CustomersView } from './components/views/CustomersView';
 import { EmployeesView } from './components/views/EmployeesView';
 import { EmployeeProfileView } from './components/views/EmployeeProfileView';
+import { SalaryView } from './components/views/SalaryView';
 import { ServicesView } from './components/views/ServicesView';
 import { ReportsView } from './components/views/ReportsView';
 import { POSView } from './components/views/POSView';
@@ -63,6 +64,7 @@ const TAB_PATHS: Partial<Record<View, string>> = {
   customers: '/customers',
   employees: '/employees',
   'employee-profile': '/employees/profile',
+  salary: '/employees/profile/salary',
   services: '/services',
   products: '/products',
   reports: '/reports',
@@ -81,6 +83,8 @@ type AppToast = {
   message: string;
 };
 
+const STAFF_LEVELS_CHANGED_EVENT = 'staff-levels:changed';
+
 function getTabFromPath(pathname: string): View {
   switch (pathname) {
     case '/':
@@ -92,8 +96,12 @@ function getTabFromPath(pathname: string): View {
       return 'customers';
     case '/employees':
       return 'employees';
+    case '/employees/profile/salary':
+      return 'salary';
     case '/employees/profile':
       return 'employee-profile';
+    case '/salary':
+      return 'salary';
     case '/services':
       return 'services';
     case '/products':
@@ -129,6 +137,7 @@ export default function App() {
   const [isNewPromoCodeModalOpen, setIsNewPromoCodeModalOpen] = useState(false);
   const [serviceToEdit, setServiceToEdit] = useState<Service | null>(null);
   const [serviceToDelete, setServiceToDelete] = useState<Service | null>(null);
+  const [salaryPathEmployeeId, setSalaryPathEmployeeId] = useState<string | null>(null);
   const [serviceToView, setServiceToView] = useState<Service | null>(null);
   const [isTerminateModalOpen, setIsTerminateModalOpen] = useState(false);
   const [isAddShiftModalOpen, setIsAddShiftModalOpen] = useState(false);
@@ -151,6 +160,44 @@ export default function App() {
   const [quickSearch, setQuickSearch] = useState('');
   const [isQuickSearchOpen, setIsQuickSearchOpen] = useState(false);
   const quickSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const [employeeRoleOptions, setEmployeeRoleOptions] = useState<string[]>([]);
+  const [employeeRoleCommissionMap, setEmployeeRoleCommissionMap] = useState<Record<string, number>>({});
+
+  const loadEmployeeRoleOptions = useCallback(async () => {
+    if (!authToken) {
+      setEmployeeRoleOptions([]);
+      setEmployeeRoleCommissionMap({});
+      return;
+    }
+    try {
+      const response = await fetch('/api/staff-levels', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.message || 'Không thể tải cấp bậc nhân viên.');
+      }
+      const parsed = Array.isArray(data?.staffLevels) ? data.staffLevels : [];
+      const options = parsed
+        .map((item) => (typeof item?.name === 'string' ? item.name.trim() : ''))
+        .filter(Boolean);
+
+      const nextCommissionMap: Record<string, number> = {};
+      parsed.forEach((item) => {
+        const roleName = typeof item?.name === 'string' ? item.name.trim() : '';
+        const firstNumber = Number(item?.serviceCommission || 0);
+        if (roleName && Number.isFinite(firstNumber) && firstNumber > 0) {
+          nextCommissionMap[roleName] = firstNumber;
+        }
+      });
+
+      setEmployeeRoleOptions(Array.from(new Set(options)));
+      setEmployeeRoleCommissionMap(nextCommissionMap);
+    } catch {
+      setEmployeeRoleOptions([]);
+      setEmployeeRoleCommissionMap({});
+    }
+  }, [authToken]);
 
   const dismissToast = (id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -253,6 +300,15 @@ export default function App() {
       // best-effort refresh; POS already succeeded
     }
   };
+
+  useEffect(() => {
+    void loadEmployeeRoleOptions();
+    const handleStaffLevelsChanged = () => { void loadEmployeeRoleOptions(); };
+    window.addEventListener(STAFF_LEVELS_CHANGED_EVENT, handleStaffLevelsChanged);
+    return () => {
+      window.removeEventListener(STAFF_LEVELS_CHANGED_EVENT, handleStaffLevelsChanged);
+    };
+  }, [loadEmployeeRoleOptions]);
 
   useEffect(() => {
     const verifyAuth = async () => {
@@ -618,6 +674,18 @@ export default function App() {
     setQuickSearch('');
   };
 
+  const openSalaryDetails = () => {
+    setActiveTab('salary');
+    setIsQuickSearchOpen(false);
+    setQuickSearch('');
+    window.history.pushState({}, '', '/employees/profile/salary');
+  };
+
+  const closeSalaryDetails = () => {
+    setActiveTab('employee-profile');
+    window.history.pushState({}, '', '/employees/profile');
+  };
+
   const quickSearchItems = useMemo(() => {
     const navItems: Array<{
       kind: 'nav' | 'customer' | 'employee' | 'service' | 'product';
@@ -892,7 +960,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isLoggedIn) return;
-    if (activeTab === 'employee-profile' && !selectedEmployee) {
+    if ((activeTab === 'employee-profile' || activeTab === 'salary') && !selectedEmployee) {
       setActiveTab('employees');
     }
   }, [activeTab, selectedEmployee, isLoggedIn]);
@@ -1119,7 +1187,17 @@ export default function App() {
               onAddShift={() => setIsAddShiftModalOpen(true)}
               onEdit={() => setIsEditEmployeeModalOpen(true)}
               onTerminate={() => setIsTerminateModalOpen(true)}
+              onViewSalary={openSalaryDetails}
             />
+          ) : activeTab === 'salary' && selectedEmployee ? (
+            <SalaryView
+              key="salary"
+              employee={selectedEmployee}
+              authToken={authToken}
+              onBack={closeSalaryDetails}
+            />
+          ) : activeTab === 'salary' ? (
+            <div className="p-10 text-stone-400">Không tìm thấy thông tin nhân viên.</div>
           ) : activeTab === 'services' ? (
             <ServicesView 
               key="services" 
@@ -1318,6 +1396,8 @@ export default function App() {
         {isNewEmployeeModalOpen && (
           <NewEmployeeModal
             onClose={() => setIsNewEmployeeModalOpen(false)}
+            roleOptions={employeeRoleOptions}
+            commissionByRole={employeeRoleCommissionMap}
             onSave={async (payload) => {
               try {
                 await handleCreateEmployee(payload);
@@ -1337,6 +1417,8 @@ export default function App() {
         {isEditEmployeeModalOpen && selectedEmployee && (
           <NewEmployeeModal
             onClose={() => setIsEditEmployeeModalOpen(false)}
+            roleOptions={employeeRoleOptions}
+            commissionByRole={employeeRoleCommissionMap}
             onSave={async (payload) => {
               try {
                 await handleUpdateEmployee(payload);

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { X, Calendar, Clock, ChevronDown, CheckCircle2, Image as ImageIcon, Plus } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -19,6 +19,8 @@ interface NewEmployeeModalProps {
     avatar?: string;
     status?: string;
   };
+  roleOptions?: string[];
+  commissionByRole?: Record<string, number>;
   saveLabel?: string;
   title?: string;
   description?: string;
@@ -41,17 +43,24 @@ export function NewEmployeeModal({
   onClose,
   onSave,
   initialData,
+  roleOptions,
+  commissionByRole,
   saveLabel = 'Lưu nhân viên',
   title = 'Thêm Nhân Viên Mới',
   description = 'Chào mừng thành viên mới gia nhập không gian nghệ thuật Atelier Salon. Hãy hoàn tất hồ sơ để bắt đầu hành trình sáng tạo.',
 }: NewEmployeeModalProps) {
+  const normalizedRoleOptions = (roleOptions || []).filter((item) => item.trim().length > 0);
+  const fallbackRoles = ['Senior Stylist', 'Master Stylist', 'Junior Artist', 'Barber'];
+  const finalRoleOptions = normalizedRoleOptions.length ? normalizedRoleOptions : fallbackRoles;
+
   const [specialties, setSpecialties] = useState(initialData?.specialties?.length ? initialData.specialties : ['Cắt tóc', 'Nhuộm']);
   const availableSpecialties = ['Uốn', 'Duỗi', 'Phục hồi'];
   const [name, setName] = useState(initialData?.name || '');
   const [phone, setPhone] = useState(initialData?.phone || '');
   const [email, setEmail] = useState(initialData?.email || '');
-  const [role, setRole] = useState(initialData?.role || 'Senior Stylist');
+  const [role, setRole] = useState(initialData?.role || finalRoleOptions[0]);
   const [commissionRate, setCommissionRate] = useState(String(initialData?.commissionRate ?? 15));
+  const isCommissionLocked = Boolean(commissionByRole && role && commissionByRole[role] !== undefined);
   const [birthday, setBirthday] = useState(initialData?.birthday || '');
   const [startDate, setStartDate] = useState(initialData?.startDate || '');
   const [defaultShift, setDefaultShift] = useState(initialData?.defaultShift || 'Ca Sáng (08:00 - 16:00)');
@@ -61,6 +70,20 @@ export function NewEmployeeModal({
   const [errorMessage, setErrorMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!finalRoleOptions.includes(role)) {
+      setRole(finalRoleOptions[0]);
+    }
+  }, [finalRoleOptions, role]);
+
+  useEffect(() => {
+    if (!commissionByRole) return;
+    const nextCommission = commissionByRole[role];
+    if (nextCommission !== undefined) {
+      setCommissionRate(String(nextCommission));
+    }
+  }, [commissionByRole, role]);
 
   const toggleSpecialty = (spec: string) => {
     if (specialties.includes(spec)) {
@@ -247,10 +270,9 @@ export function NewEmployeeModal({
                   onChange={(e) => setRole(e.target.value)}
                   className="w-full bg-stone-50 border-none rounded-2xl py-4 px-6 text-sm font-bold text-primary focus:ring-2 focus:ring-primary/10 transition-all appearance-none cursor-pointer"
                 >
-                  <option>Senior Stylist</option>
-                  <option>Master Stylist</option>
-                  <option>Junior Artist</option>
-                  <option>Barber</option>
+                  {finalRoleOptions.map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
                 </select>
                 <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none" />
               </div>
@@ -262,7 +284,8 @@ export function NewEmployeeModal({
                   type="text" 
                   value={commissionRate}
                   onChange={(e) => setCommissionRate(e.target.value)}
-                  className="w-full bg-stone-50 border-none rounded-2xl py-4 px-6 text-sm font-bold text-primary focus:ring-2 focus:ring-primary/10 transition-all"
+                  disabled={isCommissionLocked}
+                  className="w-full bg-stone-50 border-none rounded-2xl py-4 px-6 text-sm font-bold text-primary focus:ring-2 focus:ring-primary/10 transition-all disabled:opacity-60"
                 />
                 <span className="absolute right-6 top-1/2 -translate-y-1/2 text-stone-400 font-bold">%</span>
               </div>

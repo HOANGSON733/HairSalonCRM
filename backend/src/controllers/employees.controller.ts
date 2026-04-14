@@ -36,7 +36,6 @@ export async function listEmployees(req: Request, res: Response) {
         email: employee.email || '',
         role: employee.role || '',
         commissionRate: Number(employee.commissionRate || 0),
-        rating: Number(employee.rating || 0),
         avatar: employee.avatar || '',
         status:
           employee.status === 'terminated'
@@ -97,7 +96,6 @@ export async function createEmployee(req: Request, res: Response) {
       birthday,
       startDate,
       defaultShift,
-      rating: 5,
       status: 'available',
       avatar: avatar || '',
       createdAt: now,
@@ -239,7 +237,6 @@ export async function terminateEmployee(req: Request, res: Response) {
         email: result.email || '',
         role: result.role || '',
         commissionRate: Number(result.commissionRate || 0),
-        rating: Number(result.rating || 0),
         avatar: result.avatar || '',
         status:
           result.status === 'terminated'
@@ -260,6 +257,162 @@ export async function terminateEmployee(req: Request, res: Response) {
     });
   } catch (_error) {
     return res.status(400).json({ message: 'Không thể cập nhật trạng thái nghỉ việc.' });
+  }
+}
+
+function formatDateVi(date: Date) {
+  return new Intl.DateTimeFormat('vi-VN').format(date);
+}
+
+function formatMoneyVnd(value: number) {
+  return Math.round(value).toLocaleString('vi-VN');
+}
+
+export async function getEmployeeProfileStats(req: Request, res: Response) {
+  try {
+    if (!(await requireAuth(req, res))) return;
+
+    const employeeId = String(req.params.id || '').trim();
+    if (!employeeId || !ObjectId.isValid(employeeId)) {
+      return res.status(400).json({ message: 'Id nhân viên không hợp lệ.' });
+    }
+
+    const employee = await currentDb().collection('employees').findOne({ _id: new ObjectId(employeeId) });
+    if (!employee) {
+      return res.status(404).json({ message: 'Không tìm thấy nhân viên.' });
+    }
+
+    const employeeName = String(employee.name || '').trim();
+    if (!employeeName) {
+      return res.json({
+        ok: true,
+        profile: {
+          monthlyRevenue: '0',
+          rebookingRate: '0%',
+          commissions: [],
+          revenueSources: [],
+          salaryBreakdown: [],
+          workHistory: [],
+          additions: [],
+          deductions: [],
+        },
+      });
+    }
+
+    const now = new Date();
+    const monthFrom = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const monthTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const orders = currentDb().collection('pos_orders');
+    const appointments = currentDb().collection('appointments');
+
+    const employeeOrders = await orders
+      .aggregate([
+        { $match: { createdAt: { $gte: monthFrom, $lte: monthTo } } },
+        { $unwind: '$items' },
+        {
+          $match: {
+            'items.type': 'service',
+            'items.staff': employeeName,
+          },
+        },
+        {
+          $group: {
+            _id: '$items.name',
+            count: { $sum: '$items.quantity' },
+            revenue: { $sum: '$items.lineNetTotal' },
+          },
+        },
+        { $sort: { revenue: -1 } },
+      ])
+      .toArray();
+
+    const monthlyRevenueTotal = employeeOrders.reduce((sum, row: any) => sum + Number(row?.revenue || 0), 0);
+    const commissions = employeeOrders.map((row: any) => ({
+      service: String(row?._id || 'Dịch vụ'),
+      count: Number(row?.count || 0),
+      amount: formatMoneyVnd(Number(row?.revenue || 0)),
+    }));
+
+    const revenueSources = employeeOrders.slice(0, 6).map((row: any) => ({
+      name: String(row?._id || 'Dịch vụ'),
+      amount: Number(row?.revenue || 0),
+    }));
+
+    const customerRows = await orders
+      .aggregate([
+        { $match: { createdAt: { $gte: monthFrom, $lte: monthTo } } },
+        { $unwind: '$items' },
+        {
+          $match: {
+            'items.type': 'service',
+            'items.staff': employeeName,
+            customerId: { $exists: true, $ne: null },
+          },
+        },
+        {
+          $group: {
+            _id: '$customerId',
+            visits: { $sum: 1 },
+          },
+        },
+      ])
+      .toArray();
+
+    const uniqueCustomers = customerRows.length;
+    const returningCustomers = customerRows.filter((row: any) => Number(row?.visits || 0) > 1).length;
+    const rebookingRate = uniqueCustomers > 0 ? Math.round((returningCustomers / uniqueCustomers) * 100) : 0;
+
+    const appointmentRows = await appointments
+      .find({
+        $or: [{ stylistName: employeeName }, { stylistId: String(employeeId) }],
+        date: { $gte: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01` },
+      })
+      .sort({ date: -1, time: -1, createdAt: -1 })
+      .limit(20)
+      .toArray();
+
+    const workHistory = appointmentRows.slice(0, 8).map((item: any) => ({
+      date: String(item?.date || formatDateVi(now)),
+      title: `${String(item?.serviceName || 'Dịch vụ')} · ${String(item?.status || 'confirmed')}`,
+      detail: `${String(item?.customerName || 'Khách hàng')} • ${String(item?.time || '')}`,
+    }));
+
+    const baseSalary = Number(employee?.salary?.baseSalary || 0) || (String(employee?.role || '').trim() ? 8000000 : 0);
+    const commissionRate = Number(employee?.commissionRate || 0);
+    const commissionAmount = Math.round((monthlyRevenueTotal * commissionRate) / 100);
+
+    const orderCount = employeeOrders.reduce((sum, row: any) => sum + Number(row?.count || 0), 0);
+    const additions = [
+      ...(orderCount >= 20 ? [{ label: 'Thưởng hiệu suất', amount: 500000, note: 'Đạt từ 20 lượt dịch vụ trở lên' }] : []),
+      ...(rebookingRate >= 30 ? [{ label: 'Thưởng giữ khách', amount: 300000, note: 'Tỷ lệ quay lại tốt' }] : []),
+    ];
+
+    const deductions = appointmentRows.filter((item: any) => item?.status === 'cancelled').length
+      ? [{ label: 'Lịch hủy', amount: appointmentRows.filter((item: any) => item?.status === 'cancelled').length * 50000, note: 'Dựa trên lịch hủy trong tháng' }]
+      : [];
+
+    const salaryBreakdown = [
+      { label: 'Lương cứng', amount: baseSalary },
+      { label: 'Hoa hồng doanh thu', amount: commissionAmount },
+      { label: 'Tổng doanh thu từ dịch vụ', amount: monthlyRevenueTotal },
+    ];
+
+    return res.json({
+      ok: true,
+      profile: {
+        monthlyRevenue: formatMoneyVnd(monthlyRevenueTotal),
+        rebookingRate: `${rebookingRate}%`,
+        commissions,
+        revenueSources,
+        salaryBreakdown,
+        workHistory,
+        additions,
+        deductions,
+      },
+    });
+  } catch (_error) {
+    return res.status(400).json({ message: 'Không thể tải dữ liệu hồ sơ nhân viên.' });
   }
 }
 

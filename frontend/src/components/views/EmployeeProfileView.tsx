@@ -1,10 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Phone,
   Mail,
   Calendar as CalendarIcon,
-  Star,
   Award,
   ChevronLeft,
   Clock,
@@ -21,6 +20,7 @@ interface EmployeeProfileViewProps {
   onAddShift: () => void;
   onEdit: () => void;
   onTerminate: () => void;
+  onViewSalary: () => void;
   key?: string;
 }
 
@@ -33,7 +33,70 @@ function getInitials(name: string) {
     .join('');
 }
 
-export function EmployeeProfileView({ employee, onBack, onAddShift, onEdit, onTerminate }: EmployeeProfileViewProps) {
+const STAFF_LEVELS_STORAGE_KEY = 'crm_staff_levels';
+const STAFF_LEVELS_CHANGED_EVENT = 'staff-levels:changed';
+
+export function EmployeeProfileView({ employee, onBack, onAddShift, onEdit, onTerminate, onViewSalary }: EmployeeProfileViewProps) {
+  const [commissionByRole, setCommissionByRole] = useState<Record<string, number>>({});
+  const [salaryFormulaByRole, setSalaryFormulaByRole] = useState<Record<string, 'fixed_plus_commission' | 'commission_only'>>({});
+  const [fixedSalaryByRole, setFixedSalaryByRole] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const loadCommissionByRole = () => {
+      try {
+        const raw = localStorage.getItem(STAFF_LEVELS_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) {
+          setCommissionByRole({});
+          return;
+        }
+
+        const next: Record<string, number> = {};
+        const nextFormula: Record<string, 'fixed_plus_commission' | 'commission_only'> = {};
+        const nextFixedSalary: Record<string, number> = {};
+
+        parsed.forEach((item) => {
+          const roleName = typeof item?.name === 'string' ? item.name.trim() : '';
+          const rawCommission = typeof item?.serviceCommission === 'string' ? item.serviceCommission : '';
+          const firstNumber = Number(rawCommission.match(/\d+(?:\.\d+)?/)?.[0] || 0);
+          if (roleName && Number.isFinite(firstNumber) && firstNumber > 0) {
+            next[roleName] = firstNumber;
+          }
+          if (roleName) {
+            nextFormula[roleName] = item?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission';
+            nextFixedSalary[roleName] = Number(item?.fixedSalary || 0);
+          }
+        });
+
+        setCommissionByRole(next);
+        setSalaryFormulaByRole(nextFormula);
+        setFixedSalaryByRole(nextFixedSalary);
+      } catch {
+        setCommissionByRole({});
+        setSalaryFormulaByRole({});
+        setFixedSalaryByRole({});
+      }
+    };
+
+    loadCommissionByRole();
+    window.addEventListener(STAFF_LEVELS_CHANGED_EVENT, loadCommissionByRole);
+    return () => window.removeEventListener(STAFF_LEVELS_CHANGED_EVENT, loadCommissionByRole);
+  }, []);
+
+  const effectiveCommissionRate = useMemo(() => {
+    const byRole = commissionByRole[employee.role || ''];
+    if (Number.isFinite(byRole) && byRole > 0) return byRole;
+    return Number(employee.commissionRate || 0);
+  }, [commissionByRole, employee.role, employee.commissionRate]);
+
+  const effectiveSalaryFormula = useMemo(() => {
+    return salaryFormulaByRole[employee.role || ''] || 'fixed_plus_commission';
+  }, [salaryFormulaByRole, employee.role]);
+
+  const effectiveFixedSalary = useMemo(() => {
+    return Number(fixedSalaryByRole[employee.role || ''] || 0);
+  }, [fixedSalaryByRole, employee.role]);
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -111,7 +174,7 @@ export function EmployeeProfileView({ employee, onBack, onAddShift, onEdit, onTe
             </div>
             <div className="bg-stone-50 rounded-2xl px-5 py-4 space-y-1">
               <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Tỷ lệ hoa hồng</p>
-              <p className="text-sm font-bold text-primary">{employee.commissionRate || 0}%</p>
+              <p className="text-sm font-bold text-primary">{effectiveCommissionRate}%</p>
             </div>
           </div>
           <div className="flex gap-4">
@@ -155,19 +218,6 @@ export function EmployeeProfileView({ employee, onBack, onAddShift, onEdit, onTe
           </div>
           <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
             <div className="h-full bg-secondary" style={{ width: '75%' }}></div>
-          </div>
-        </div>
-
-        <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-stone-100 space-y-6">
-          <div className="flex items-center gap-3 text-secondary">
-            <Star size={24} fill="currentColor" />
-            <h4 className="text-[11px] font-bold uppercase tracking-widest text-stone-400">ĐÁNH GIÁ TB</h4>
-          </div>
-          <div className="flex items-end gap-2">
-            <h3 className="text-5xl font-serif text-primary">{employee.rating || '5.0'}/5.0</h3>
-          </div>
-          <div className="w-full h-1.5 bg-stone-100 rounded-full overflow-hidden">
-            <div className="h-full bg-secondary" style={{ width: '98%' }}></div>
           </div>
         </div>
 
@@ -229,13 +279,25 @@ export function EmployeeProfileView({ employee, onBack, onAddShift, onEdit, onTe
         <div className="space-y-8">
           <h3 className="text-3xl font-serif text-primary">Hoa Hồng</h3>
           <div className="bg-white p-10 rounded-[2.5rem] shadow-sm border border-stone-100 space-y-8">
+            <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-5 space-y-2">
+              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Công thức lương hiện tại</p>
+              <p className="text-sm font-semibold text-primary">
+                {effectiveSalaryFormula === 'fixed_plus_commission'
+                  ? 'Lương = Lương cứng + (Doanh thu × % hoa hồng)'
+                  : 'Lương = Doanh thu × % hoa hồng'}
+              </p>
+              {effectiveSalaryFormula === 'fixed_plus_commission' && (
+                <p className="text-xs text-stone-500">Lương cứng: {effectiveFixedSalary.toLocaleString('vi-VN')}đ</p>
+              )}
+            </div>
+
             <div className="space-y-6">
               {employee.commissions?.length ? (
                 employee.commissions.map((comm, i) => (
                   <div key={i} className="flex justify-between items-center">
                     <div>
                       <p className="text-sm font-bold text-primary">{comm.service}</p>
-                      <p className="text-[10px] text-stone-400 font-bold uppercase">{comm.count} DỊCH VỤ x {employee.commissionRate || 0}%</p>
+                      <p className="text-[10px] text-stone-400 font-bold uppercase">{comm.count} DỊCH VỤ x {effectiveCommissionRate}%</p>
                     </div>
                     <span className="text-sm font-serif text-primary">{comm.amount}</span>
                   </div>
@@ -258,7 +320,13 @@ export function EmployeeProfileView({ employee, onBack, onAddShift, onEdit, onTe
                     : '0k'}
                 </p>
               </div>
-              <button className="text-[10px] font-bold text-secondary uppercase tracking-widest hover:underline">Chi Tiết Bảng Lương</button>
+              <button
+                type="button"
+                onClick={onViewSalary}
+                className="text-[10px] font-bold text-secondary uppercase tracking-widest hover:underline"
+              >
+                Chi Tiết Bảng Lương
+              </button>
             </div>
           </div>
         </div>

@@ -296,34 +296,182 @@ export function SettingsView({
     'Nguồn khách', 'Lý do hủy', 'Thời lượng'
   ];
 
-  const staffLevels = [
+  type SalaryFormula = 'fixed_plus_commission' | 'commission_only';
+
+  type StaffLevel = {
+    id: number;
+    name: string;
+    serviceCommission: string;
+    productCommission: string;
+    salaryFormula: SalaryFormula;
+    fixedSalary: number;
+  };
+
+  const STAFF_LEVELS_CHANGED_EVENT = 'staff-levels:changed';
+
+  const defaultStaffLevels: StaffLevel[] = [
     {
       id: 1,
       name: 'Stylist Cao Cấp',
-      level: 'BẬC 5',
-      tier: 'LUXURY TIER',
-      staffCount: 8,
-      serviceCommission: '15% - 20%',
-      productCommission: '5%',
-      permissions: ['Quản lý lịch hẹn', 'Xem hồ sơ khách hàng VIP', 'Phê duyệt voucher', 'Đào tạo nhân sự mới'],
-      extraPermissions: 3,
-      icon: <Scissors size={24} />,
-      color: 'bg-stone-900 text-white'
+      serviceCommission: '15',
+      productCommission: '5',
+      salaryFormula: 'fixed_plus_commission',
+      fixedSalary: 8000000,
     },
     {
       id: 2,
       name: 'Kỹ Thuật Viên',
-      level: 'BẬC 2',
-      tier: 'PROFESSIONAL',
-      staffCount: 14,
-      serviceCommission: '8% - 12%',
-      productCommission: '3%',
-      permissions: ['Thực hiện dịch vụ', 'Xem lịch cá nhân', 'Yêu cầu kho vật tư'],
-      extraPermissions: 1,
-      icon: <Sparkles size={24} />,
-      color: 'bg-stone-100 text-stone-600'
+      serviceCommission: '10',
+      productCommission: '3',
+      salaryFormula: 'commission_only',
+      fixedSalary: 0,
     }
   ];
+
+  const [staffLevels, setStaffLevels] = useState<StaffLevel[]>(defaultStaffLevels);
+  const [isStaffLevelEditorOpen, setIsStaffLevelEditorOpen] = useState(false);
+  const [staffLevelEditorId, setStaffLevelEditorId] = useState<number | null>(null);
+  const [staffLevelName, setStaffLevelName] = useState('');
+  const [staffLevelServiceCommission, setStaffLevelServiceCommission] = useState('');
+  const [staffLevelProductCommission, setStaffLevelProductCommission] = useState('');
+  const [staffLevelSalaryFormula, setStaffLevelSalaryFormula] = useState<SalaryFormula>('fixed_plus_commission');
+  const [staffLevelFixedSalary, setStaffLevelFixedSalary] = useState('0');
+  const [staffLevelToDelete, setStaffLevelToDelete] = useState<StaffLevel | null>(null);
+
+  useEffect(() => {
+    const loadStaffLevels = async () => {
+      if (!authToken) {
+        setStaffLevels(defaultStaffLevels);
+        return;
+      }
+      try {
+        const response = await fetch('/api/staff-levels', {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(data?.message || 'Không thể tải cấp bậc nhân viên.');
+        const parsed = Array.isArray(data?.staffLevels) ? data.staffLevels : [];
+        if (!parsed.length) {
+          setStaffLevels(defaultStaffLevels);
+          return;
+        }
+        setStaffLevels(parsed.map((item) => ({
+          id: Number(item?.id) || Date.now(),
+          name: typeof item?.name === 'string' ? item.name : '',
+          serviceCommission: typeof item?.serviceCommission === 'string' ? item.serviceCommission : '0',
+          productCommission: typeof item?.productCommission === 'string' ? item.productCommission : '0',
+          salaryFormula: item?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission',
+          fixedSalary: Number(item?.fixedSalary || 0),
+        })));
+      } catch {
+        setStaffLevels(defaultStaffLevels);
+      }
+    };
+
+    void loadStaffLevels();
+  }, [authToken]);
+
+  const openCreateStaffLevel = () => {
+    setStaffLevelEditorId(null);
+    setStaffLevelName('');
+    setStaffLevelServiceCommission('0');
+    setStaffLevelProductCommission('0');
+    setStaffLevelSalaryFormula('fixed_plus_commission');
+    setStaffLevelFixedSalary('0');
+    setIsStaffLevelEditorOpen(true);
+  };
+
+  const openEditStaffLevel = (level: StaffLevel) => {
+    setStaffLevelEditorId(level.id);
+    setStaffLevelName(level.name);
+    setStaffLevelServiceCommission(level.serviceCommission);
+    setStaffLevelProductCommission(level.productCommission);
+    setStaffLevelSalaryFormula(level.salaryFormula || 'fixed_plus_commission');
+    setStaffLevelFixedSalary(String(level.fixedSalary || 0));
+    setIsStaffLevelEditorOpen(true);
+  };
+
+  const saveStaffLevel = async () => {
+    const name = staffLevelName.trim();
+    if (!name) {
+      alert('Vui lòng nhập tên cấp bậc.');
+      return;
+    }
+    if (!authToken) {
+      alert('Phiên đăng nhập không hợp lệ.');
+      return;
+    }
+
+    const payload = {
+      name,
+      serviceCommission: String(Number(staffLevelServiceCommission || 0)),
+      productCommission: String(Number(staffLevelProductCommission || 0)),
+      salaryFormula: staffLevelSalaryFormula,
+      fixedSalary: staffLevelSalaryFormula === 'fixed_plus_commission' ? Number(staffLevelFixedSalary || 0) : 0,
+      isVisible: true,
+    };
+
+    const url = staffLevelEditorId ? `/api/staff-levels/${staffLevelEditorId}` : '/api/staff-levels';
+    const method = staffLevelEditorId ? 'PUT' : 'POST';
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      alert(data?.message || 'Không thể lưu cấp bậc.');
+      return;
+    }
+
+    setIsStaffLevelEditorOpen(false);
+    const refreshed = await fetch('/api/staff-levels', {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const refreshedData = await refreshed.json().catch(() => null);
+    if (refreshed.ok && Array.isArray(refreshedData?.staffLevels)) {
+      setStaffLevels(refreshedData.staffLevels.map((item) => ({
+        id: Number(item?.id) || Date.now(),
+        name: typeof item?.name === 'string' ? item.name : '',
+        serviceCommission: typeof item?.serviceCommission === 'string' ? item.serviceCommission : '0',
+        productCommission: typeof item?.productCommission === 'string' ? item.productCommission : '0',
+        salaryFormula: item?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission',
+        fixedSalary: Number(item?.fixedSalary || 0),
+      })));
+    }
+  };
+
+  const deleteStaffLevel = async () => {
+    if (!staffLevelToDelete || !authToken) return;
+    const response = await fetch(`/api/staff-levels/${staffLevelToDelete.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      alert(data?.message || 'Không thể xóa cấp bậc.');
+      return;
+    }
+    setStaffLevelToDelete(null);
+    const refreshed = await fetch('/api/staff-levels', {
+      headers: { Authorization: `Bearer ${authToken}` },
+    });
+    const refreshedData = await refreshed.json().catch(() => null);
+    if (refreshed.ok && Array.isArray(refreshedData?.staffLevels)) {
+      setStaffLevels(refreshedData.staffLevels.map((item) => ({
+        id: Number(item?.id) || Date.now(),
+        name: typeof item?.name === 'string' ? item.name : '',
+        serviceCommission: typeof item?.serviceCommission === 'string' ? item.serviceCommission : '0',
+        productCommission: typeof item?.productCommission === 'string' ? item.productCommission : '0',
+        salaryFormula: item?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission',
+        fixedSalary: Number(item?.fixedSalary || 0),
+      })));
+    }
+  };
 
   const renderStaffLevels = () => (
     <div className="space-y-10">
@@ -333,7 +481,10 @@ export function SettingsView({
           <h3 className="text-4xl font-serif text-primary">Cấp bậc & Phân quyền</h3>
           <p className="text-stone-400 text-sm">Quản lý các cấp bậc nhân sự và thiết lập quyền truy cập cho từng vai trò trong hệ thống Atelier.</p>
         </div>
-        <button className="bg-primary text-white px-8 py-4 rounded-2xl text-sm font-bold flex items-center gap-3 shadow-xl hover:bg-primary-light transition-all">
+        <button
+          onClick={openCreateStaffLevel}
+          className="bg-primary text-white px-8 py-4 rounded-2xl text-sm font-bold flex items-center gap-3 shadow-xl hover:bg-primary-light transition-all"
+        >
           <UserPlus size={20} /> + Thêm cấp bậc
         </button>
       </div>
@@ -360,103 +511,150 @@ export function SettingsView({
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Staff Level Cards */}
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
-          {staffLevels.map((level) => (
-            <div key={level.id} className="bg-white p-10 rounded-[3rem] shadow-sm border border-stone-100 space-y-8 relative group">
-              <div className="flex items-center gap-6">
-                <div className={cn("w-16 h-16 rounded-[1.5rem] flex items-center justify-center shadow-lg", level.color)}>
-                  {level.icon}
-                </div>
+      {activeSubTab === 'Cấp bậc nhân viên' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Staff Level Cards */}
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
+            {staffLevels.map((level) => (
+              <div key={level.id} className="bg-white p-10 rounded-[3rem] shadow-sm border border-stone-100 space-y-8 relative group">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-3">
-                    <h4 className="text-2xl font-serif text-primary">{level.name}</h4>
-                    <span className="bg-stone-50 text-stone-400 text-[9px] font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                      <Users size={10} /> {level.staffCount.toString().padStart(2, '0')} Nhân viên
-                    </span>
-                  </div>
+                  <h4 className="text-2xl font-serif text-primary">{level.name}</h4>
                   <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
-                    {level.level} • <span className="text-stone-300">{level.tier}</span>
+                    Cấu hình hoa hồng & lương
                   </p>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-stone-50/50 p-6 rounded-3xl space-y-2 border border-stone-50">
-                  <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">HOA HỒNG DỊCH VỤ</p>
-                  <p className="text-xl font-serif text-primary">{level.serviceCommission}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-stone-50/50 p-6 rounded-3xl space-y-2 border border-stone-50">
+                    <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">HOA HỒNG DỊCH VỤ</p>
+                    <p className="text-xl font-serif text-primary">{level.serviceCommission}%</p>
+                  </div>
+                  <div className="bg-stone-50/50 p-6 rounded-3xl space-y-2 border border-stone-50">
+                    <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">HOA HỒNG SẢN PHẨM</p>
+                    <p className="text-xl font-serif text-primary">{level.productCommission}%</p>
+                  </div>
                 </div>
-                <div className="bg-stone-50/50 p-6 rounded-3xl space-y-2 border border-stone-50">
-                  <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">HOA HỒNG SẢN PHẨM</p>
-                  <p className="text-xl font-serif text-primary">{level.productCommission}</p>
-                </div>
-              </div>
 
-              <div className="space-y-4">
-                <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">QUYỀN HẠN ĐẶC TRƯNG</p>
-                <div className="flex flex-wrap gap-2">
-                  {level.permissions.map(p => (
-                    <span key={p} className="bg-amber-50/50 text-amber-700 px-4 py-2 rounded-xl text-[10px] font-bold whitespace-nowrap">
-                      {p}
-                    </span>
-                  ))}
-                  {level.extraPermissions > 0 && (
-                    <span className="bg-stone-50 text-stone-400 px-4 py-2 rounded-xl text-[10px] font-bold">
-                      +{level.extraPermissions} Quyền khác
-                    </span>
+                <div className="bg-amber-50/40 border border-amber-100 rounded-2xl p-5 space-y-2">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">CÔNG THỨC LƯƠNG</p>
+                  <p className="text-sm font-semibold text-primary">
+                    {level.salaryFormula === 'fixed_plus_commission'
+                      ? 'Lương = Lương cứng + (Doanh thu × % hoa hồng)'
+                      : 'Lương = Doanh thu × % hoa hồng'}
+                  </p>
+                  {level.salaryFormula === 'fixed_plus_commission' && (
+                    <p className="text-xs text-stone-500">Lương cứng: {Number(level.fixedSalary || 0).toLocaleString('vi-VN')}đ</p>
                   )}
                 </div>
+
+                <div className="flex justify-end gap-6 pt-4">
+                  <button className="text-[11px] font-bold text-stone-400 hover:text-primary transition-colors">Chi tiết</button>
+                  <button
+                    onClick={() => openEditStaffLevel(level)}
+                    className="text-[11px] font-bold text-primary hover:text-primary-light transition-colors"
+                  >
+                    Chỉnh sửa
+                  </button>
+                  <button
+                    onClick={() => setStaffLevelToDelete(level)}
+                    className="text-[11px] font-bold text-red-500 hover:text-red-600 transition-colors"
+                  >
+                    Xóa
+                  </button>
+                </div>
               </div>
+            ))}
 
-              <div className="flex justify-end gap-6 pt-4">
-                <button className="text-[11px] font-bold text-stone-400 hover:text-primary transition-colors">Chi tiết</button>
-                <button className="text-[11px] font-bold text-primary hover:text-primary-light transition-colors">Chỉnh sửa</button>
+            {/* Add New Level Card */}
+            <button
+              onClick={openCreateStaffLevel}
+              className="bg-stone-50/30 border-2 border-dashed border-stone-200 rounded-[3rem] flex flex-col items-center justify-center p-12 space-y-4 group hover:border-primary/30 transition-all"
+            >
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-stone-300 group-hover:text-primary shadow-sm transition-colors">
+                <Plus size={32} />
               </div>
-            </div>
-          ))}
-
-          {/* Add New Level Card */}
-          <button className="bg-stone-50/30 border-2 border-dashed border-stone-200 rounded-[3rem] flex flex-col items-center justify-center p-12 space-y-4 group hover:border-primary/30 transition-all">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-stone-300 group-hover:text-primary shadow-sm transition-colors">
-              <Plus size={32} />
-            </div>
-            <div className="text-center">
-              <h4 className="text-xl font-serif text-stone-400 group-hover:text-primary transition-colors">Thêm cấp bậc mới</h4>
-              <p className="text-xs text-stone-300 mt-1">Thiết lập lộ trình thăng tiến cho salon của bạn</p>
-            </div>
-          </button>
-        </div>
-
-        {/* Summary Card */}
-        <div className="bg-primary text-white p-10 rounded-[3rem] shadow-2xl flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -right-10 -bottom-10 opacity-10">
-            <BarChart3 size={240} />
+              <div className="text-center">
+                <h4 className="text-xl font-serif text-stone-400 group-hover:text-primary transition-colors">Thêm cấp bậc mới</h4>
+                <p className="text-xs text-stone-300 mt-1">Thiết lập lộ trình thăng tiến cho salon của bạn</p>
+              </div>
+            </button>
           </div>
-          <div className="space-y-8 relative z-10">
-            <h4 className="text-2xl font-serif">Tổng quan Nhân sự</h4>
-            <div className="space-y-6">
-              <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                <span className="text-sm text-white/60">Tổng số cấp bậc</span>
-                <span className="text-2xl font-serif">06</span>
-              </div>
-              <div className="flex justify-between items-center border-b border-white/10 pb-4">
-                <span className="text-sm text-white/60">Nhân viên hoạt động</span>
-                <span className="text-2xl font-serif">42</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-white/60">Yêu cầu quyền hạn chờ duyệt</span>
-                <div className="flex items-center gap-3">
-                  <span className="bg-secondary text-white text-[10px] font-bold px-2 py-0.5 rounded-md">03</span>
+
+          {/* Summary Card */}
+          <div className="bg-primary text-white p-10 rounded-[3rem] shadow-2xl flex flex-col justify-between relative overflow-hidden">
+            <div className="absolute -right-10 -bottom-10 opacity-10">
+              <BarChart3 size={240} />
+            </div>
+            <div className="space-y-8 relative z-10">
+              <h4 className="text-2xl font-serif">Tổng quan Nhân sự</h4>
+              <div className="space-y-6">
+                <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                  <span className="text-sm text-white/60">Tổng số cấp bậc</span>
+                  <span className="text-2xl font-serif">{staffLevels.length.toString().padStart(2, '0')}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                  <span className="text-sm text-white/60">Nhân viên hoạt động</span>
+                  <span className="text-2xl font-serif">--</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-white/60">Yêu cầu quyền hạn chờ duyệt</span>
+                  <div className="flex items-center gap-3">
+                    <span className="bg-secondary text-white text-[10px] font-bold px-2 py-0.5 rounded-md">03</span>
+                  </div>
                 </div>
               </div>
             </div>
+            <button className="w-full bg-white text-primary py-5 rounded-2xl text-sm font-bold shadow-xl hover:bg-stone-50 transition-all relative z-10 mt-12">
+              Báo cáo phân quyền chi tiết
+            </button>
           </div>
-          <button className="w-full bg-white text-primary py-5 rounded-2xl text-sm font-bold shadow-xl hover:bg-stone-50 transition-all relative z-10 mt-12">
-            Báo cáo phân quyền chi tiết
-          </button>
         </div>
-      </div>
+      )}
+
+      {activeSubTab === 'Quyền hạn chung' && (
+        <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 overflow-hidden">
+          <div className="p-8 border-b border-stone-50 flex items-center justify-between">
+            <h4 className="text-sm font-bold text-primary flex items-center gap-2"><Shield size={16} /> Ma trận quyền hạn</h4>
+            <span className="text-[10px] text-stone-400 uppercase tracking-widest">Theo module hệ thống</span>
+          </div>
+          <div className="divide-y divide-stone-50">
+            {roles.map((role) => (
+              <div key={role.id} className="p-8 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-lg font-bold text-primary">{role.name}</h5>
+                  <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{role.roleId}</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {role.permissions.map((permission) => (
+                    <div key={`${role.id}-${permission.module}`} className="bg-stone-50/50 border border-stone-100 rounded-2xl p-4 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-primary">{permission.module}</span>
+                      <span className="text-xs text-stone-500">{permission.actions.join(' • ')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'Lịch sử thay đổi' && (
+        <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-8 space-y-4">
+          <h4 className="text-sm font-bold text-primary flex items-center gap-2"><History size={16} /> Lịch sử thay đổi quyền hạn</h4>
+          <div className="space-y-3">
+            {[ 
+              'Admin cập nhật quyền cho Stylist Cao Cấp lúc 09:25',
+              'Quản lý thêm cấp bậc mới: Chuyên viên màu lúc 08:10',
+              'Kỹ Thuật Viên được cấp quyền xem kho lúc 18:42 hôm qua',
+            ].map((item) => (
+              <div key={item} className="bg-stone-50/60 border border-stone-100 rounded-2xl px-5 py-4 text-sm text-stone-600 flex items-center gap-3">
+                <FileText size={14} className="text-stone-400" />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1001,6 +1199,140 @@ export function SettingsView({
             title="Xác nhận xóa danh mục sản phẩm"
             unitLabel="sản phẩm"
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {staffLevelToDelete && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-stone-900/50 backdrop-blur-sm"
+              onClick={() => setStaffLevelToDelete(null)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-white w-full max-w-md rounded-[2rem] shadow-2xl border border-stone-100 overflow-hidden z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-8 border-b border-stone-100">
+                <h4 className="text-xl font-serif text-primary">Xác nhận xóa cấp bậc</h4>
+                <p className="text-sm text-stone-500 mt-2">
+                  Bạn có chắc muốn xóa cấp bậc <strong>{staffLevelToDelete.name}</strong>?
+                </p>
+              </div>
+              <div className="p-8 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStaffLevelToDelete(null)}
+                  className="px-5 py-3 rounded-xl text-sm font-bold text-stone-500 bg-stone-100 hover:bg-stone-200 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={deleteStaffLevel}
+                  className="px-5 py-3 rounded-xl text-sm font-bold text-white bg-red-500 hover:bg-red-600 transition-colors"
+                >
+                  Xóa
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isStaffLevelEditorOpen && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-stone-900/50 backdrop-blur-sm"
+              onClick={() => setIsStaffLevelEditorOpen(false)}
+            />
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="relative bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl border border-stone-100 overflow-hidden z-10"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-8 flex justify-between items-start border-b border-stone-100">
+                <h4 className="text-xl font-serif text-primary pr-8">
+                  {staffLevelEditorId ? 'Sửa cấp bậc nhân viên' : 'Thêm cấp bậc nhân viên'}
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setIsStaffLevelEditorOpen(false)}
+                  className="p-2 text-stone-400 hover:text-stone-600 transition-colors"
+                  aria-label="Đóng"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+              <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Tên cấp bậc</label>
+                  <input value={staffLevelName} onChange={(e) => setStaffLevelName(e.target.value)} placeholder="Tên cấp bậc" className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10" />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">% Hoa hồng dịch vụ</label>
+                  <input value={staffLevelServiceCommission} onChange={(e) => setStaffLevelServiceCommission(e.target.value)} placeholder="Ví dụ: 15" className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">% Hoa hồng sản phẩm</label>
+                  <input value={staffLevelProductCommission} onChange={(e) => setStaffLevelProductCommission(e.target.value)} placeholder="Ví dụ: 5" className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10" />
+                </div>
+
+                <div className="md:col-span-2 space-y-2">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Cách tính lương</label>
+                  <select
+                    value={staffLevelSalaryFormula}
+                    onChange={(e) => setStaffLevelSalaryFormula(e.target.value as SalaryFormula)}
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10"
+                  >
+                    <option value="fixed_plus_commission">Lương = Lương cứng + (Doanh thu × % hoa hồng)</option>
+                    <option value="commission_only">Lương = Doanh thu × %</option>
+                  </select>
+                </div>
+
+                {staffLevelSalaryFormula === 'fixed_plus_commission' && (
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Lương cứng</label>
+                    <input
+                      value={staffLevelFixedSalary}
+                      onChange={(e) => setStaffLevelFixedSalary(e.target.value)}
+                      placeholder="Ví dụ: 8000000"
+                      className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10"
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="px-8 pb-8 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsStaffLevelEditorOpen(false)}
+                  className="px-5 py-3 rounded-xl text-sm font-bold text-stone-500 bg-stone-100 hover:bg-stone-200 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={saveStaffLevel}
+                  className="px-5 py-3 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary-light transition-colors"
+                >
+                  Lưu
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

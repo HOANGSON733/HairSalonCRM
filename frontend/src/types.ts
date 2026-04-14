@@ -1,4 +1,4 @@
-export type View = 'dashboard' | 'appointments' | 'customers' | 'employees' | 'employee-profile' | 'services' | 'reports' | 'pos' | 'settings' | 'login' | 'marketing' | 'products';
+export type View = 'dashboard' | 'appointments' | 'customers' | 'employees' | 'employee-profile' | 'salary' | 'services' | 'reports' | 'pos' | 'settings' | 'login' | 'marketing' | 'products';
 
 export interface Customer {
   id: string | number;
@@ -50,7 +50,6 @@ export interface Employee {
   phone?: string;
   email?: string;
   commissionRate?: number;
-  rating: number;
   avatar: string;
   status: 'available' | 'busy' | 'on-leave' | 'terminated';
   specialties: string[];
@@ -63,6 +62,11 @@ export interface Employee {
   certificates?: { title: string; location: string; icon: string }[];
   weeklySchedule?: { day: string; shift: string; time: string; type?: string }[];
   commissions?: { service: string; count: number; amount: string }[];
+  revenueSources?: { name: string; amount: number }[];
+  salaryBreakdown?: { label: string; amount: number }[];
+  workHistory?: { date: string; title: string; detail: string }[];
+  additions?: { label: string; amount: number; note?: string }[];
+  deductions?: { label: string; amount: number; note?: string }[];
 }
 
 export interface ServiceCategory {

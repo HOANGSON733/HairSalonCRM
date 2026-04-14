@@ -15,9 +15,11 @@ export async function connectMongo() {
   await db.collection('pos_orders').createIndex({ createdAt: -1 });
   await db.collection('appointments').createIndex({ date: 1, time: 1, stylistId: 1 });
   await db.collection('customer_sources').createIndex({ normalizedName: 1 }, { unique: true });
+  await db.collection('staff_levels').createIndex({ normalizedName: 1 }, { unique: true });
   await seedDefaultServiceCategories();
   await seedDefaultProductCategories();
   await seedDefaultCustomerSources();
+  await seedDefaultStaffLevels();
   await seedAdminUser();
   console.log(`MongoDB connected: ${config.dbName}`);
 }
@@ -128,6 +130,44 @@ async function seedDefaultProductCategories() {
           ...item,
           normalizedName: item.name.toLowerCase(),
           description: '',
+          isVisible: true,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+  }
+}
+
+async function seedDefaultStaffLevels() {
+  const defaults = [
+    {
+      name: 'Stylist Cao Cấp',
+      serviceCommission: '15',
+      productCommission: '5',
+      salaryFormula: 'fixed_plus_commission',
+      fixedSalary: 8000000,
+    },
+    {
+      name: 'Kỹ Thuật Viên',
+      serviceCommission: '10',
+      productCommission: '3',
+      salaryFormula: 'commission_only',
+      fixedSalary: 0,
+    },
+  ];
+
+  const col = currentDb().collection('staff_levels');
+  for (let sortOrder = 0; sortOrder < defaults.length; sortOrder += 1) {
+    const item = defaults[sortOrder];
+    await col.updateOne(
+      { normalizedName: item.name.toLowerCase() },
+      {
+        $setOnInsert: {
+          ...item,
+          normalizedName: item.name.toLowerCase(),
+          sortOrder,
           isVisible: true,
           createdAt: new Date(),
           updatedAt: new Date(),

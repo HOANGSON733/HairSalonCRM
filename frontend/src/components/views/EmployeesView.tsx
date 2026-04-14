@@ -166,7 +166,7 @@ export function EmployeesView({ authToken, employees, onNewEmployee, onViewProfi
           </div>
         </div>
 
-        <KPICard title="ĐÁNH GIÁ TB" value="4.9" rating color="secondary" />
+        {/* <KPICard title="ĐÁNH GIÁ TB" value="4.9" rating color="secondary" /> */}
       </div>
 
       {/* Search & Filter */}
@@ -220,10 +220,10 @@ export function EmployeesView({ authToken, employees, onNewEmployee, onViewProfi
                   <h4 className="text-lg font-serif text-primary">{employee.name}</h4>
                   <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-0.5">{employee.role}</p>
                 </div>
-                <div className="flex items-center gap-1 text-secondary">
+                {/* <div className="flex items-center gap-1 text-secondary">
                   <Star size={14} fill="currentColor" />
                   <span className="text-xs font-bold">{employee.rating}</span>
-                </div>
+                </div> */}
               </div>
               <p className="text-[11px] text-stone-500 leading-relaxed line-clamp-2">
                 {employee.specialties.join(' • ')}

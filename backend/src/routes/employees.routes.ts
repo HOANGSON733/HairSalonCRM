@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { createEmployee, deleteEmployee, listEmployees, terminateEmployee, updateEmployee } from '../controllers/employees.controller';
+import { createEmployee, deleteEmployee, getEmployeeProfileStats, listEmployees, terminateEmployee, updateEmployee } from '../controllers/employees.controller';
 
 const employeesRouter = Router();
 
 employeesRouter.get('/', listEmployees);
+employeesRouter.get('/:id/salary', getEmployeeProfileStats);
 employeesRouter.post('/', createEmployee);
 employeesRouter.put('/:id', updateEmployee);
 employeesRouter.patch('/:id/terminate', terminateEmployee);

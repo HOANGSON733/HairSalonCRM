@@ -153,6 +153,9 @@ export default function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [restockProduct, setRestockProduct] = useState<Product | null>(null);
+  const [restockAmount, setRestockAmount] = useState('1');
+  const [restockError, setRestockError] = useState<string | null>(null);
   const [productsPage, setProductsPage] = useState(1);
   const [productsTotalPages, setProductsTotalPages] = useState(1);
   const [productsTotal, setProductsTotal] = useState(0);
@@ -666,6 +669,37 @@ export default function App() {
       throw new Error(data?.message || 'Không thể nhập kho sản phẩm.');
     }
     await loadProducts(authToken, productsPage);
+  };
+
+  const openRestockModal = (product: Product) => {
+    setRestockProduct(product);
+    setRestockAmount('1');
+    setRestockError(null);
+  };
+
+  const closeRestockModal = () => {
+    setRestockProduct(null);
+    setRestockAmount('1');
+    setRestockError(null);
+  };
+
+  const submitRestock = async () => {
+    if (!restockProduct) return;
+    const amount = Number(restockAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setRestockError('Số lượng nhập kho phải lớn hơn 0.');
+      return;
+    }
+
+    try {
+      setRestockError(null);
+      await handleRestockProduct(restockProduct.id, amount);
+      closeRestockModal();
+      showToast('success', 'Nhập kho thành công', `Đã nhập thêm ${amount} sản phẩm cho "${restockProduct.name}".`);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Không thể nhập kho sản phẩm.';
+      setRestockError(message);
+    }
   };
 
   const navigateToTab = (tab: View) => {
@@ -1214,23 +1248,7 @@ export default function App() {
               onNewProduct={() => setIsNewProductModalOpen(true)}
               onEditProduct={(product) => setProductToEdit(product)}
               onDeleteProduct={(product) => setProductToDelete(product)}
-              onRestockProduct={(product) => {
-                const value = window.prompt(`Nhập số lượng cần nhập kho cho "${product.name}"`, '1');
-                if (!value) return;
-                const amount = Number(value);
-                if (!Number.isFinite(amount) || amount <= 0) {
-                  alert('Số lượng nhập kho phải lớn hơn 0.');
-                  return;
-                }
-                (async () => {
-                  try {
-                    await handleRestockProduct(product.id, amount);
-                  } catch (e) {
-                    const message = e instanceof Error ? e.message : 'Không thể nhập kho sản phẩm.';
-                    alert(message);
-                  }
-                })();
-              }}
+              onRestockProduct={(product) => openRestockModal(product)}
               page={productsPage}
               totalPages={productsTotalPages}
               total={productsTotal}
@@ -1272,6 +1290,48 @@ export default function App() {
           ) : null}
         </AnimatePresence>
       </main>
+
+      {restockProduct ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeRestockModal} />
+          <div className="relative w-full max-w-md rounded-[2rem] bg-white shadow-2xl p-8 space-y-6">
+            <div className="space-y-2">
+              <h3 className="text-2xl font-serif text-primary">Nhập kho sản phẩm</h3>
+              <p className="text-sm text-stone-500">Nhập số lượng cần nhập kho cho "{restockProduct.name}"</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">SỐ LƯỢNG</label>
+              <input
+                type="number"
+                min="1"
+                value={restockAmount}
+                onChange={(e) => setRestockAmount(e.target.value)}
+                className="w-full rounded-2xl border border-stone-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/10"
+                autoFocus
+              />
+              {restockError ? <p className="text-sm text-red-600">{restockError}</p> : null}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeRestockModal}
+                className="rounded-2xl bg-stone-100 px-5 py-3 text-sm font-semibold text-stone-600 hover:bg-stone-200 transition-all"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={() => { void submitRestock(); }}
+                className="rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-white hover:bg-primary-light transition-all"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* New Appointment Modal */}
       <AnimatePresence>

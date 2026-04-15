@@ -7,17 +7,15 @@ import {
   ChevronDown, 
   Filter, 
   MoreVertical,
-  ChevronLeft,
-  ChevronRight,
   Search,
   Edit2,
   Trash2
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { Pagination } from '../Pagination';
 import { Product } from '../../types';
 
 interface ProductsViewProps {
-  key?: string;
   products: Product[];
   onNewProduct?: () => void;
   onEditProduct?: (product: Product) => void;
@@ -45,9 +43,6 @@ export function ProductsView({
   const [selectedCategory, setSelectedCategory] = useState('Tất cả danh mục');
 
   const categories = ['Tất cả danh mục', ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))];
-  const pageStart = Math.max(1, page - 1);
-  const pageEnd = Math.min(totalPages, pageStart + 2);
-  const visiblePages = Array.from({ length: pageEnd - pageStart + 1 }, (_, i) => pageStart + i);
   const visibleProducts = products.filter((product) => {
     const matchesCategory = selectedCategory === 'Tất cả danh mục' || product.category === selectedCategory;
     const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -358,41 +353,14 @@ export function ProductsView({
         </div>
       )}
       {/* Pagination */}
-      <div className="flex justify-between items-center pt-8 border-t border-stone-100">
-        <p className="text-xs font-medium text-stone-400">
-          Hiển thị {visibleProducts.length} trong trang {page} / {totalPages} - tổng {total} sản phẩm
-        </p>
-        <div className="flex items-center gap-3">
-          <button
-            disabled={page <= 1}
-            onClick={() => onPageChange?.(Math.max(1, page - 1))}
-            className="w-11 h-11 rounded-2xl border border-stone-100 bg-white flex items-center justify-center text-stone-400 hover:bg-stone-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          {visiblePages.map((p) => (
-            <button
-              key={p}
-              onClick={() => onPageChange?.(p)}
-              className={cn(
-                'w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-bold transition-all',
-                p === page
-                  ? 'bg-primary text-white shadow-lg'
-                  : 'bg-white border border-stone-100 text-stone-500 hover:bg-stone-50'
-              )}
-            >
-              {p}
-            </button>
-          ))}
-          <button
-            disabled={page >= totalPages}
-            onClick={() => onPageChange?.(Math.min(totalPages, page + 1))}
-            className="w-11 h-11 rounded-2xl border border-stone-100 bg-white flex items-center justify-center text-stone-400 hover:bg-stone-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
-      </div>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        itemLabel="sản phẩm"
+        visibleCount={visibleProducts.length}
+        onPageChange={onPageChange}
+      />
     </div>
   );
 }

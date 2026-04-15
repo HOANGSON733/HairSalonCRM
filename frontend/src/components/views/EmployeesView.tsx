@@ -4,13 +4,12 @@ import {
   Search, 
   Plus, 
   Filter, 
-  Star, 
-  ChevronRight,
-  ChevronLeft,
+  Star,
   Lightbulb, 
   ArrowRight
 } from 'lucide-react';
 import { KPICard } from '../KPICard';
+import { Pagination } from '../Pagination';
 import { cn } from '../../lib/utils';
 import { Employee } from '../../types';
 
@@ -248,34 +247,14 @@ export function EmployeesView({ authToken, employees, onNewEmployee, onViewProfi
         })}
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-widest text-stone-400">
-          Hiển thị {paginatedEmployees.length} / {employees.length} nhân viên
-        </p>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-            disabled={currentPage === 1}
-            className="h-10 w-10 rounded-xl border border-stone-200 bg-white text-stone-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-stone-50 transition-colors flex items-center justify-center"
-            aria-label="Trang trước"
-          >
-            <ChevronLeft size={16} />
-          </button>
-
-          <div className="px-4 h-10 rounded-xl bg-stone-100 text-xs font-bold text-stone-600 flex items-center">
-            Trang {currentPage} / {totalPages}
-          </div>
-
-          <button
-            onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={currentPage === totalPages}
-            className="h-10 w-10 rounded-xl border border-stone-200 bg-white text-stone-600 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-stone-50 transition-colors flex items-center justify-center"
-            aria-label="Trang sau"
-          >
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      </div>
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        total={employees.length}
+        visibleCount={paginatedEmployees.length}
+        itemLabel="nhân viên"
+        onPageChange={setCurrentPage}
+      />
 
       {/* Performance Dashboard */}
       <div className="bg-stone-50 rounded-[3rem] p-12 space-y-10">

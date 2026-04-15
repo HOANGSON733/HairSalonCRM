@@ -1191,7 +1191,6 @@ export default function App() {
             />
           ) : activeTab === 'salary' && selectedEmployee ? (
             <SalaryView
-              key="salary"
               employee={selectedEmployee}
               authToken={authToken}
               onBack={closeSalaryDetails}

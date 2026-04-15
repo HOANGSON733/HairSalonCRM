@@ -97,6 +97,7 @@ export function EmployeesView({ authToken, employees, onNewEmployee, onViewProfi
     (currentPage - 1) * employeesPerPage,
     currentPage * employeesPerPage
   );
+  const activeRate = employees.length ? Math.round((workingCount / employees.length) * 100) : 0;
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -151,7 +152,7 @@ export function EmployeesView({ authToken, employees, onNewEmployee, onViewProfi
           </div>
           <div className="w-px h-20 bg-stone-100" />
           <div className="w-20 h-20 rounded-full border-4 border-secondary/20 border-t-secondary flex items-center justify-center">
-            <span className="text-xl font-serif text-primary">92%</span>
+            <span className="text-xl font-serif text-primary">{activeRate}%</span>
           </div>
         </div>
 

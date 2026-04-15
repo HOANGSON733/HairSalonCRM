@@ -1101,9 +1101,9 @@ export default function App() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 bg-stone-50/30 overflow-y-auto">
+      <main className="flex-1 bg-stone-50/30 overflow-y-auto pt-24">
         {/* Header */}
-        <header className="h-24 bg-white/80 backdrop-blur-md border-b border-stone-100 px-10 flex items-center justify-between sticky top-0 z-40">
+        <header className="fixed top-0 right-0 z-50 h-24 bg-white/80 backdrop-blur-md border-b border-stone-100 px-10 flex items-center justify-between w-[calc(100%-16rem)]">
           <div className="relative w-96">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" />
             <button

@@ -3,6 +3,8 @@ import { ObjectId } from 'mongodb';
 import { getTokenFromHeader, verifyAuthToken } from '../lib/auth';
 import { currentDb } from '../lib/db';
 
+type SalaryFormula = 'fixed_plus_commission' | 'commission_only';
+
 function normalizePhone(phone: string) {
   return phone.replace(/\s+/g, '');
 }
@@ -378,25 +380,37 @@ export async function getEmployeeProfileStats(req: Request, res: Response) {
       detail: `${String(item?.customerName || 'Khách hàng')} • ${String(item?.time || '')}`,
     }));
 
-    const baseSalary = Number(employee?.salary?.baseSalary || 0) || (String(employee?.role || '').trim() ? 8000000 : 0);
-    const commissionRate = Number(employee?.commissionRate || 0);
+    const staffLevel = await currentDb().collection('staff_levels').findOne({
+      normalizedName: String(employee?.role || '').trim().toLowerCase(),
+    });
+
+    const baseSalary = Number(staffLevel?.fixedSalary || 0);
+    const commissionRate = Number(staffLevel?.serviceCommission || employee?.commissionRate || 0);
     const commissionAmount = Math.round((monthlyRevenueTotal * commissionRate) / 100);
+    const additions = Number(staffLevel?.additions || 0);
+    const deductions = Number(staffLevel?.deductions || 0);
+    const salaryFormula: SalaryFormula = staffLevel?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission';
 
     const orderCount = employeeOrders.reduce((sum, row: any) => sum + Number(row?.count || 0), 0);
-    const additions = [
+    const autoAdditions = [
       ...(orderCount >= 20 ? [{ label: 'Thưởng hiệu suất', amount: 500000, note: 'Đạt từ 20 lượt dịch vụ trở lên' }] : []),
       ...(rebookingRate >= 30 ? [{ label: 'Thưởng giữ khách', amount: 300000, note: 'Tỷ lệ quay lại tốt' }] : []),
     ];
 
-    const deductions = appointmentRows.filter((item: any) => item?.status === 'cancelled').length
+    const autoDeductions = appointmentRows.filter((item: any) => item?.status === 'cancelled').length
       ? [{ label: 'Lịch hủy', amount: appointmentRows.filter((item: any) => item?.status === 'cancelled').length * 50000, note: 'Dựa trên lịch hủy trong tháng' }]
       : [];
 
-    const salaryBreakdown = [
-      { label: 'Lương cứng', amount: baseSalary },
-      { label: 'Hoa hồng doanh thu', amount: commissionAmount },
-      { label: 'Tổng doanh thu từ dịch vụ', amount: monthlyRevenueTotal },
-    ];
+    const salaryBreakdown = salaryFormula === 'fixed_plus_commission'
+      ? [
+          { label: 'Lương cứng', amount: baseSalary },
+          { label: 'Hoa hồng dịch vụ', amount: commissionAmount },
+          { label: 'Tổng doanh thu từ dịch vụ', amount: monthlyRevenueTotal },
+        ]
+      : [
+          { label: 'Hoa hồng dịch vụ', amount: commissionAmount },
+          { label: 'Tổng doanh thu từ dịch vụ', amount: monthlyRevenueTotal },
+        ];
 
     return res.json({
       ok: true,
@@ -407,8 +421,8 @@ export async function getEmployeeProfileStats(req: Request, res: Response) {
         revenueSources,
         salaryBreakdown,
         workHistory,
-        additions,
-        deductions,
+        additions: autoAdditions,
+        deductions: autoDeductions,
       },
     });
   } catch (_error) {

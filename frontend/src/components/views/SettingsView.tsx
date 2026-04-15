@@ -302,9 +302,10 @@ export function SettingsView({
     id: number;
     name: string;
     serviceCommission: string;
-    productCommission: string;
     salaryFormula: SalaryFormula;
     fixedSalary: number;
+    additions: string;
+    deductions: string;
   };
 
   const STAFF_LEVELS_CHANGED_EVENT = 'staff-levels:changed';
@@ -314,17 +315,19 @@ export function SettingsView({
       id: 1,
       name: 'Stylist Cao Cấp',
       serviceCommission: '15',
-      productCommission: '5',
       salaryFormula: 'fixed_plus_commission',
       fixedSalary: 8000000,
+      additions: '0',
+      deductions: '0',
     },
     {
       id: 2,
       name: 'Kỹ Thuật Viên',
       serviceCommission: '10',
-      productCommission: '3',
       salaryFormula: 'commission_only',
       fixedSalary: 0,
+      additions: '0',
+      deductions: '0',
     }
   ];
 
@@ -333,9 +336,10 @@ export function SettingsView({
   const [staffLevelEditorId, setStaffLevelEditorId] = useState<number | null>(null);
   const [staffLevelName, setStaffLevelName] = useState('');
   const [staffLevelServiceCommission, setStaffLevelServiceCommission] = useState('');
-  const [staffLevelProductCommission, setStaffLevelProductCommission] = useState('');
   const [staffLevelSalaryFormula, setStaffLevelSalaryFormula] = useState<SalaryFormula>('fixed_plus_commission');
   const [staffLevelFixedSalary, setStaffLevelFixedSalary] = useState('0');
+  const [staffLevelAdditions, setStaffLevelAdditions] = useState('0');
+  const [staffLevelDeductions, setStaffLevelDeductions] = useState('0');
   const [staffLevelToDelete, setStaffLevelToDelete] = useState<StaffLevel | null>(null);
 
   useEffect(() => {
@@ -355,13 +359,14 @@ export function SettingsView({
           setStaffLevels(defaultStaffLevels);
           return;
         }
-        setStaffLevels(parsed.map((item) => ({
-          id: Number(item?.id) || Date.now(),
+        setStaffLevels(parsed.map((item, index) => ({
+          id: Number(item?.id) || Number(`${Date.now()}${index}`),
           name: typeof item?.name === 'string' ? item.name : '',
           serviceCommission: typeof item?.serviceCommission === 'string' ? item.serviceCommission : '0',
-          productCommission: typeof item?.productCommission === 'string' ? item.productCommission : '0',
           salaryFormula: item?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission',
           fixedSalary: Number(item?.fixedSalary || 0),
+          additions: typeof item?.additions === 'string' ? item.additions : '0',
+          deductions: typeof item?.deductions === 'string' ? item.deductions : '0',
         })));
       } catch {
         setStaffLevels(defaultStaffLevels);
@@ -375,9 +380,10 @@ export function SettingsView({
     setStaffLevelEditorId(null);
     setStaffLevelName('');
     setStaffLevelServiceCommission('0');
-    setStaffLevelProductCommission('0');
     setStaffLevelSalaryFormula('fixed_plus_commission');
     setStaffLevelFixedSalary('0');
+    setStaffLevelAdditions('0');
+    setStaffLevelDeductions('0');
     setIsStaffLevelEditorOpen(true);
   };
 
@@ -385,9 +391,10 @@ export function SettingsView({
     setStaffLevelEditorId(level.id);
     setStaffLevelName(level.name);
     setStaffLevelServiceCommission(level.serviceCommission);
-    setStaffLevelProductCommission(level.productCommission);
     setStaffLevelSalaryFormula(level.salaryFormula || 'fixed_plus_commission');
     setStaffLevelFixedSalary(String(level.fixedSalary || 0));
+    setStaffLevelAdditions(level.additions || '0');
+    setStaffLevelDeductions(level.deductions || '0');
     setIsStaffLevelEditorOpen(true);
   };
 
@@ -405,9 +412,10 @@ export function SettingsView({
     const payload = {
       name,
       serviceCommission: String(Number(staffLevelServiceCommission || 0)),
-      productCommission: String(Number(staffLevelProductCommission || 0)),
       salaryFormula: staffLevelSalaryFormula,
       fixedSalary: staffLevelSalaryFormula === 'fixed_plus_commission' ? Number(staffLevelFixedSalary || 0) : 0,
+      additions: String(Number(staffLevelAdditions || 0)),
+      deductions: String(Number(staffLevelDeductions || 0)),
       isVisible: true,
     };
 
@@ -434,13 +442,14 @@ export function SettingsView({
     });
     const refreshedData = await refreshed.json().catch(() => null);
     if (refreshed.ok && Array.isArray(refreshedData?.staffLevels)) {
-      setStaffLevels(refreshedData.staffLevels.map((item) => ({
-        id: Number(item?.id) || Date.now(),
+      setStaffLevels(refreshedData.staffLevels.map((item, index) => ({
+        id: Number(item?.id) || Number(`${Date.now()}${index}`),
         name: typeof item?.name === 'string' ? item.name : '',
         serviceCommission: typeof item?.serviceCommission === 'string' ? item.serviceCommission : '0',
-        productCommission: typeof item?.productCommission === 'string' ? item.productCommission : '0',
         salaryFormula: item?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission',
         fixedSalary: Number(item?.fixedSalary || 0),
+        additions: typeof item?.additions === 'string' ? item.additions : '0',
+        deductions: typeof item?.deductions === 'string' ? item.deductions : '0',
       })));
     }
   };
@@ -462,13 +471,14 @@ export function SettingsView({
     });
     const refreshedData = await refreshed.json().catch(() => null);
     if (refreshed.ok && Array.isArray(refreshedData?.staffLevels)) {
-      setStaffLevels(refreshedData.staffLevels.map((item) => ({
-        id: Number(item?.id) || Date.now(),
+      setStaffLevels(refreshedData.staffLevels.map((item, index) => ({
+        id: Number(item?.id) || Number(`${Date.now()}${index}`),
         name: typeof item?.name === 'string' ? item.name : '',
         serviceCommission: typeof item?.serviceCommission === 'string' ? item.serviceCommission : '0',
-        productCommission: typeof item?.productCommission === 'string' ? item.productCommission : '0',
         salaryFormula: item?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission',
         fixedSalary: Number(item?.fixedSalary || 0),
+        additions: typeof item?.additions === 'string' ? item.additions : '0',
+        deductions: typeof item?.deductions === 'string' ? item.deductions : '0',
       })));
     }
   };
@@ -524,14 +534,10 @@ export function SettingsView({
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="bg-stone-50/50 p-6 rounded-3xl space-y-2 border border-stone-50">
                     <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">HOA HỒNG DỊCH VỤ</p>
                     <p className="text-xl font-serif text-primary">{level.serviceCommission}%</p>
-                  </div>
-                  <div className="bg-stone-50/50 p-6 rounded-3xl space-y-2 border border-stone-50">
-                    <p className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">HOA HỒNG SẢN PHẨM</p>
-                    <p className="text-xl font-serif text-primary">{level.productCommission}%</p>
                   </div>
                 </div>
 
@@ -539,12 +545,14 @@ export function SettingsView({
                   <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">CÔNG THỨC LƯƠNG</p>
                   <p className="text-sm font-semibold text-primary">
                     {level.salaryFormula === 'fixed_plus_commission'
-                      ? 'Lương = Lương cứng + (Doanh thu × % hoa hồng)'
-                      : 'Lương = Doanh thu × % hoa hồng'}
+                      ? 'Lương = Lương cứng + (Doanh thu dịch vụ × % hoa hồng)'
+                      : 'Lương = Doanh thu dịch vụ × % hoa hồng'}
                   </p>
                   {level.salaryFormula === 'fixed_plus_commission' && (
                     <p className="text-xs text-stone-500">Lương cứng: {Number(level.fixedSalary || 0).toLocaleString('vi-VN')}đ</p>
                   )}
+                  <p className="text-xs text-stone-500">Khoản cộng: nhập tay khi tính lương</p>
+                  <p className="text-xs text-stone-500">Khoản trừ: nhập tay khi tính lương</p>
                 </div>
 
                 <div className="flex justify-end gap-6 pt-4">
@@ -754,7 +762,7 @@ export function SettingsView({
           </div>
 
           {/* Detailed List */}
-          <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 overflow-hidden">
+          {/* <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 overflow-hidden">
             <div className="p-8 border-b border-stone-50 flex justify-between items-center">
               <h4 className="text-sm font-bold text-primary">Danh sách chi tiết</h4>
               <span className="text-[10px] text-stone-400 italic">Kéo thả các dòng để thay đổi thứ tự hiển thị trên Menu</span>
@@ -794,7 +802,7 @@ export function SettingsView({
                 ))}
               </tbody>
             </table>
-          </div>
+          </div> */}
         </div>
       )}
 
@@ -1072,65 +1080,6 @@ export function SettingsView({
         </div>
       )}
 
-      {/* Footer Config Grid - Only show if not in specific tabs to avoid redundancy */}
-      {activeTab === 'Danh mục dịch vụ' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 pt-12 border-t border-stone-100">
-        <div className="space-y-6">
-          <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-            <Share2 size={12} /> NGUỒN KHÁCH HÀNG
-          </h4>
-          <div className="flex flex-wrap gap-2">
-            {customerSources.map((source) => (
-              <span
-                key={source.id}
-                className="inline-flex items-center gap-2 bg-white border border-stone-100 px-4 py-2 rounded-xl text-[10px] font-bold text-stone-600 shadow-sm"
-              >
-                <span className="text-primary">
-                  <CustomerSourceIcon iconId={source.icon} size={14} />
-                </span>
-                {source.name}
-              </span>
-            ))}
-            {!customerSources.length && !sourcesLoading && (
-              <span className="text-[10px] font-bold text-stone-400">Chưa có nguồn khách (vào Hệ thống → Nguồn khách)</span>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-            <XCircle size={12} /> LÝ DO HỦY LỊCH
-          </h4>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-              <span className="text-[10px] font-bold text-stone-600">Khách quên lịch (Lỗi khách)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-              <span className="text-[10px] font-bold text-stone-600">Trùng lịch thợ (Lỗi Salon)</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <h4 className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-2">
-            <Clock size={12} /> ĐƠN VỊ THỜI GIAN
-          </h4>
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-bold text-stone-400">Tối thiểu:</span>
-              <span className="text-[10px] font-bold text-stone-600">15 phút</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-[10px] font-bold text-stone-400">Thời gian đệm:</span>
-              <span className="text-[10px] font-bold text-stone-600">5 phút</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      )}
-
       <div className="text-center pt-8">
         <p className="text-[9px] font-bold text-stone-300 uppercase tracking-[0.2em]">
           © 2024 L'ATELIER SALON PREMIUM CRM — ALL RIGHTS RESERVED
@@ -1282,13 +1231,9 @@ export function SettingsView({
                   <input value={staffLevelName} onChange={(e) => setStaffLevelName(e.target.value)} placeholder="Tên cấp bậc" className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10" />
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-2">
                   <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">% Hoa hồng dịch vụ</label>
                   <input value={staffLevelServiceCommission} onChange={(e) => setStaffLevelServiceCommission(e.target.value)} placeholder="Ví dụ: 15" className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">% Hoa hồng sản phẩm</label>
-                  <input value={staffLevelProductCommission} onChange={(e) => setStaffLevelProductCommission(e.target.value)} placeholder="Ví dụ: 5" className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10" />
                 </div>
 
                 <div className="md:col-span-2 space-y-2">
@@ -1298,8 +1243,8 @@ export function SettingsView({
                     onChange={(e) => setStaffLevelSalaryFormula(e.target.value as SalaryFormula)}
                     className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10"
                   >
-                    <option value="fixed_plus_commission">Lương = Lương cứng + (Doanh thu × % hoa hồng)</option>
-                    <option value="commission_only">Lương = Doanh thu × %</option>
+                    <option value="fixed_plus_commission">Lương = Lương cứng + (Doanh thu dịch vụ × % hoa hồng)</option>
+                    <option value="commission_only">Lương = Doanh thu dịch vụ × %</option>
                   </select>
                 </div>
 
@@ -1314,6 +1259,25 @@ export function SettingsView({
                     />
                   </div>
                 )}
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Khoản cộng</label>
+                  <input
+                    value={staffLevelAdditions}
+                    onChange={(e) => setStaffLevelAdditions(e.target.value)}
+                    placeholder="Nhập tay khoản cộng"
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Khoản trừ</label>
+                  <input
+                    value={staffLevelDeductions}
+                    onChange={(e) => setStaffLevelDeductions(e.target.value)}
+                    placeholder="Nhập tay khoản trừ"
+                    className="w-full bg-stone-50 border border-stone-100 rounded-2xl py-3 px-4 text-sm outline-none focus:ring-2 focus:ring-primary/10"
+                  />
+                </div>
               </div>
               <div className="px-8 pb-8 flex justify-end gap-3">
                 <button

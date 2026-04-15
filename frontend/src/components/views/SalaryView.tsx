@@ -30,7 +30,7 @@ type SalaryFormula = 'fixed_plus_commission' | 'commission_only';
 
 export function SalaryView({ employee, authToken, onBack }: SalaryViewProps) {
   const [remoteData, setRemoteData] = useState<Partial<Employee> | null>(null);
-  const [staffLevels, setStaffLevels] = useState<Array<{ name: string; fixedSalary: number; salaryFormula: SalaryFormula }>>([]);
+  const [staffLevels, setStaffLevels] = useState<Array<{ name: string; fixedSalary: number; serviceCommission: number; salaryFormula: SalaryFormula; additions: number; deductions: number }>>([]);
   const [manualAdditions, setManualAdditions] = useState([{ label: 'Thưởng chuyên cần', amount: '500000', note: 'Đi làm đủ công trong tháng' }]);
   const [manualDeductions, setManualDeductions] = useState([{ label: 'Đi trễ', amount: '100000', note: '1 lần trong tháng' }]);
 
@@ -54,7 +54,10 @@ export function SalaryView({ employee, authToken, onBack }: SalaryViewProps) {
           setStaffLevels(levelsData.staffLevels.map((item: any) => ({
             name: String(item?.name || ''),
             fixedSalary: Number(item?.fixedSalary || 0),
+            serviceCommission: Number(item?.serviceCommission || 0),
             salaryFormula: item?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission',
+            additions: Number(item?.additions || 0),
+            deductions: Number(item?.deductions || 0),
           })));
         }
       } catch {
@@ -67,35 +70,29 @@ export function SalaryView({ employee, authToken, onBack }: SalaryViewProps) {
   const salaryData = useMemo(() => {
     const profile = remoteData || employee || {};
     const revenue = parseMoney(profile.monthlyRevenue);
-    const commissionRate = Number(profile.commissionRate || 0);
     const roleKey = employee?.role || '';
-    const matchedLevel = staffLevels.find((item) => item.name.trim() === roleKey);
+    const matchedLevel = staffLevels.find((item) => item.name.trim().toLowerCase() === roleKey.trim().toLowerCase());
     const fixedSalary = Number(matchedLevel?.fixedSalary || 0);
     const salaryFormula = (matchedLevel?.salaryFormula === 'commission_only' ? 'commission_only' : 'fixed_plus_commission') as SalaryFormula;
+    const commissionRate = Number((matchedLevel?.serviceCommission ?? profile.commissionRate) || 0);
     const commissionAmount = Math.round((revenue * commissionRate) / 100);
-    const salaryBreakdown = Array.isArray(profile.salaryBreakdown) && profile.salaryBreakdown.length
-      ? profile.salaryBreakdown
-      : salaryFormula === 'fixed_plus_commission'
-        ? [
-            { label: 'Lương cứng', amount: fixedSalary || 0 },
-            { label: 'Hoa hồng doanh thu', amount: commissionAmount },
-            { label: 'Tổng doanh thu từ dịch vụ', amount: revenue },
-          ]
-        : [
-            { label: 'Hoa hồng doanh thu', amount: commissionAmount },
-            { label: 'Tổng doanh thu từ dịch vụ', amount: revenue },
-          ];
-    const addItems = manualAdditions.map((item) => ({
-      label: item.label,
-      amount: Number(item.amount || 0),
-      note: item.note,
-    }));
-    const minusItems = manualDeductions.map((item) => ({
-      label: item.label,
-      amount: Number(item.amount || 0),
-      note: item.note,
-    }));
-    const gross = salaryBreakdown.reduce((sum, item) => sum + Number(item.amount || 0), 0) + addItems.reduce((sum, item) => sum + Number(item.amount || 0), 0) - minusItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const additions = Number(matchedLevel?.additions || 0);
+    const deductions = Number(matchedLevel?.deductions || 0);
+    const salaryBreakdown = salaryFormula === 'fixed_plus_commission'
+      ? [
+          { label: 'Lương cứng', amount: fixedSalary || 0 },
+          { label: 'Hoa hồng dịch vụ', amount: commissionAmount },
+          { label: 'Tổng doanh thu từ dịch vụ', amount: revenue },
+        ]
+      : [
+          { label: 'Hoa hồng dịch vụ', amount: commissionAmount },
+          { label: 'Tổng doanh thu từ dịch vụ', amount: revenue },
+        ];
+    const addItems = [{ label: 'Khoản cộng', amount: additions, note: 'Theo cấp bậc nhân viên' }];
+    const minusItems = [{ label: 'Khoản trừ', amount: deductions, note: 'Theo cấp bậc nhân viên' }];
+    const manualAddTotal = manualAdditions.reduce((sum, item) => sum + parseMoney(item.amount), 0);
+    const manualDeductTotal = manualDeductions.reduce((sum, item) => sum + parseMoney(item.amount), 0);
+    const gross = salaryBreakdown.reduce((sum, item) => sum + Number(item.amount || 0), 0) + additions + manualAddTotal - deductions - manualDeductTotal;
 
     return {
       revenue,
@@ -109,8 +106,8 @@ export function SalaryView({ employee, authToken, onBack }: SalaryViewProps) {
       salaryFormula,
       formulaText:
         salaryFormula === 'fixed_plus_commission'
-          ? 'Lương = Lương cứng + Hoa hồng doanh thu + Khoản cộng - Khoản trừ'
-          : 'Lương = Doanh thu × % hoa hồng + Khoản cộng - Khoản trừ',
+          ? 'Lương = Lương cứng + Hoa hồng dịch vụ + Khoản cộng - Khoản trừ'
+          : 'Lương = Hoa hồng dịch vụ + Khoản cộng - Khoản trừ',
       sourceRevenue: (Array.isArray(profile.revenueSources) && profile.revenueSources.length
         ? profile.revenueSources
         : [
@@ -125,7 +122,7 @@ export function SalaryView({ employee, authToken, onBack }: SalaryViewProps) {
             { date: '01/04', title: 'Làm ca sáng', detail: 'Hoàn thành 7 lượt dịch vụ' },
           ]) as { date: string; title: string; detail: string }[],
     };
-  }, [employee, remoteData, staffLevels, manualAdditions, manualDeductions]);
+  }, [employee, remoteData, staffLevels]);
 
   return (
     <motion.div
@@ -174,7 +171,7 @@ export function SalaryView({ employee, authToken, onBack }: SalaryViewProps) {
             <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Tỷ lệ hoa hồng</span>
           </div>
           <p className="text-4xl font-serif text-primary">{salaryData.commissionRate}%</p>
-          <p className="text-sm text-stone-400">Theo cấp bậc nhân viên</p>
+          <p className="text-sm text-stone-400">Lấy từ cấp bậc nhân viên trong hệ thống</p>
         </div>
       </div>
 
@@ -184,7 +181,7 @@ export function SalaryView({ employee, authToken, onBack }: SalaryViewProps) {
             <ReceiptText className="text-secondary" size={20} />
             <div>
               <h3 className="text-xl font-serif text-primary">Nguồn tiền</h3>
-              <p className="text-sm text-stone-400">Doanh thu chi tiết trong tháng</p>
+              <p className="text-sm text-stone-400">Doanh thu chi tiết trong tháng theo cấp bậc nhân viên</p>
             </div>
           </div>
           <div className="space-y-4">

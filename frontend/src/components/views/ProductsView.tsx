@@ -60,6 +60,8 @@ export function ProductsView({
     return matchesCategory && matchesSearch;
   });
 
+  const getProductImageSrc = (image?: string | null) => image && image.trim() ? image : null;
+
   const getStatusBadge = (product: Product) => {
     switch (product.status) {
       case 'in-stock':
@@ -174,12 +176,18 @@ export function ProductsView({
               className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-stone-100 group hover:shadow-xl transition-all duration-500"
             >
               <div className="relative h-64 overflow-hidden">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  referrerPolicy="no-referrer"
-                />
+                {getProductImageSrc(product.image) ? (
+                  <img
+                    src={getProductImageSrc(product.image)}
+                    alt={product.name}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-stone-100 flex items-center justify-center text-stone-300 text-sm font-medium">
+                    Chưa có ảnh
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-bold text-primary uppercase tracking-widest shadow-sm">
                   {product.category}
@@ -268,12 +276,18 @@ export function ProductsView({
                   <tr key={product.id} className="border-b border-stone-50 hover:bg-stone-50/40 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-12 h-12 rounded-xl object-cover border border-stone-100"
-                          referrerPolicy="no-referrer"
-                        />
+                        {getProductImageSrc(product.image) ? (
+                          <img
+                            src={getProductImageSrc(product.image)}
+                            alt={product.name}
+                            className="w-12 h-12 rounded-xl object-cover border border-stone-100"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl border border-stone-100 bg-stone-100 flex items-center justify-center text-[10px] text-stone-300 font-medium">
+                            No img
+                          </div>
+                        )}
                         <div>
                           <p className="text-sm font-bold text-primary">{product.name}</p>
                           <p className="text-[10px] text-stone-400 uppercase tracking-widest">{product.brand}</p>

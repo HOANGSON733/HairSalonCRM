@@ -204,6 +204,49 @@ export function CustomersView({ authToken, onNewCustomer, onDeleteCustomer, onEd
     return buckets.map(({ month, value }) => ({ month, value }));
   }, [selectedCustomer]);
 
+  const customerKpis = useMemo(() => {
+    const safeList = Array.isArray(list) ? list : [];
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const parseDate = (value?: string) => {
+      if (!value) return null;
+      const parts = value.split('/').map(Number);
+      if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return null;
+      const [dd, mm, yyyy] = parts;
+      return new Date(yyyy, mm - 1, dd);
+    };
+
+    const customersNewThisMonth = safeList.filter((customer) => {
+      const memberDate = parseDate(customer.memberSince);
+      return memberDate ? memberDate >= startOfMonth : false;
+    }).length;
+
+    const returningCustomers = safeList.filter((customer) => {
+      const historyCount = Array.isArray(customer.history) ? customer.history.length : 0;
+      return historyCount > 1;
+    }).length;
+
+    const returnRate = safeList.length ? Math.round((returningCustomers / safeList.length) * 100) : 0;
+
+    const totalRevenue = safeList.reduce((sum, customer) => {
+      const history = Array.isArray(customer.history) ? customer.history : [];
+      return sum + history.reduce((customerSum, visit) => {
+        const price = Number(String(visit?.price || '').replace(/[^\d]/g, ''));
+        return customerSum + (Number.isFinite(price) ? price : 0);
+      }, 0);
+    }, 0);
+
+    const totalVisits = safeList.reduce((sum, customer) => sum + (Array.isArray(customer.history) ? customer.history.length : 0), 0);
+    const avgCustomerValue = totalVisits ? Math.round(totalRevenue / totalVisits) : 0;
+
+    return {
+      customersNewThisMonth,
+      returnRate,
+      avgCustomerValue,
+    };
+  }, [list]);
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -227,9 +270,9 @@ export function CustomersView({ authToken, onNewCustomer, onDeleteCustomer, onEd
 
       <div className="grid grid-cols-4 gap-6 mb-10">
         <KPICard title="Tổng khách hàng" value={String(total)} trend="+5.2%" color="primary" />
-        <KPICard title="Khách hàng mới" value="156" subtitle="Tháng này" color="secondary" />
-        <KPICard title="Tỷ lệ quay lại" value="78%" trend="+2.1%" color="stone" />
-        <KPICard title="Giá trị TB/Khách" value="1.450.000₫" color="secondary-light" />
+        <KPICard title="Khách hàng mới" value={String(customerKpis.customersNewThisMonth)} subtitle="Tháng này" color="secondary" />
+        <KPICard title="Tỷ lệ quay lại" value={`${customerKpis.returnRate}%`} trend="+2.1%" color="stone" />
+        <KPICard title="Giá trị TB/Khách" value={`${customerKpis.avgCustomerValue.toLocaleString('vi-VN')}₫`} color="secondary-light" />
       </div>
 
       <div className="relative">

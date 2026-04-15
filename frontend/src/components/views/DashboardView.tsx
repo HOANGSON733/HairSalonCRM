@@ -8,7 +8,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell
@@ -53,6 +52,11 @@ export function DashboardView({ authToken, onNewCustomer }: DashboardViewProps) 
   const [loading, setLoading] = useState(false);
   const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
   const [chartRange, setChartRange] = useState<'week' | 'month' | 'year'>('week');
+  const [chartsReady, setChartsReady] = useState(false);
+
+  useEffect(() => {
+    setChartsReady(true);
+  }, []);
 
   useEffect(() => {
     if (!authToken) return;
@@ -126,7 +130,7 @@ export function DashboardView({ authToken, onNewCustomer }: DashboardViewProps) 
       </div>
 
       <div className="grid grid-cols-3 gap-8 mb-10">
-        <div className="col-span-2 bg-white p-8 rounded-xl shadow-sm border border-stone-100">
+        <div className="col-span-2 bg-white p-8 rounded-xl shadow-sm border border-stone-100 min-w-0">
           <div className="flex justify-between items-center mb-8 overflow-visible relative z-20">
             <h4 className="font-serif text-xl text-primary">
               {chartRange === 'week' ? 'Doanh thu theo tuần' : chartRange === 'month' ? 'Doanh thu 30 ngày qua' : 'Doanh thu năm nay'}
@@ -159,29 +163,33 @@ export function DashboardView({ authToken, onNewCustomer }: DashboardViewProps) 
               </div>
             </div>
           </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={weeklyRevenueData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10, fontWeight: 700 }} dy={10} />
-                <YAxis hide />
-                <Tooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                <Bar dataKey="value" fill="#4d0216" radius={[4, 4, 0, 0]} maxBarSize={40} className="opacity-20 hover:opacity-100 transition-opacity" />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="h-[300px] w-full min-w-0">
+            {chartsReady && (
+              <div className="w-[720px] h-[300px]">
+                <BarChart width={720} height={300} data={weeklyRevenueData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 10, fontWeight: 700 }} dy={10} />
+                  <YAxis hide />
+                  <Tooltip cursor={{ fill: '#f9fafb' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                  <Bar dataKey="value" fill="#4d0216" radius={[4, 4, 0, 0]} maxBarSize={40} className="opacity-20 hover:opacity-100 transition-opacity" />
+                </BarChart>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="bg-white p-8 rounded-xl shadow-sm border border-stone-100 flex flex-col">
           <h4 className="font-serif text-xl text-primary mb-8">Phân bổ dịch vụ</h4>
-          <div className="h-[200px] w-full relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={serviceAllocationData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  {serviceAllocationData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+          <div className="h-[200px] w-full relative min-w-0">
+            {chartsReady && (
+              <div className="w-[320px] h-[200px] mx-auto">
+                <PieChart width={320} height={200}>
+                  <Pie data={serviceAllocationData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                    {serviceAllocationData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                  </Pie>
+                </PieChart>
+              </div>
+            )}
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-3xl font-serif text-primary">{serviceAllocationData?.[0]?.value ?? 0}%</span>
               <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">{topService}</span>
